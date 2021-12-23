@@ -1,0 +1,65 @@
+Installation:
+=============
+
+  ~> uname -a
+     Linux NanoPC-T4 4.4.167 #1 SMP Fri Jul 12 17:32:47 CST 2019 aarch64 aarch64 aarch64 GNU/Linux
+
+  ~> tail ~/.bashrc
+     # Big/Little endian crash (x86 vs ARM)
+     export OPENBLAS_CORETYPE=ARMV8
+
+  ~> sudo apt-get update
+  ~> sudo apt-get -y upgrade
+
+  ~/Programs> git clone https://github.com/opencv/opencv_contrib
+  ~/Programs/opencv_contrib> git checkout 4.5.4
+  ~/Programs> git clone https://github.com/opencv/opencv
+  ~/Programs/opencv> git checkout 4.5.4
+
+  ~> sudo apt-get install build-essential cmake git unzip pkg-config zlib1g-dev \
+                          libjpeg-dev libjpeg8-dev libjpeg-turbo8-dev \
+                          libpng-dev libtiff-dev libglew-dev \
+                          libavcodec-dev libavformat-dev libswscale-dev \
+                          libgtk2.0-dev libgtk-3-dev libcanberra-gtk* \
+                          python-dev python-numpy python-pip \
+                          python3-dev python3-numpy python3-pip \
+                          libxvidcore-dev libx264-dev libgtk-3-dev \
+                          libtbb2 libtbb-dev libdc1394-22-dev libxine2-dev \
+                          libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+                          gstreamer1.0-tools libgstreamer-plugins-base1.0-dev \
+                          libgstreamer-plugins-good1.0-dev \
+                          libv4l-dev v4l-utils v4l2ucp qv4l2 \
+                          libtesseract-dev libxine2-dev libpostproc-dev \
+                          libavresample-dev libvorbis-dev \
+                          libfaac-dev libmp3lame-dev libtheora-dev \
+                          libopencore-amrnb-dev libopencore-amrwb-dev \
+                          libopenblas-dev libatlas-base-dev libblas-dev \
+                          liblapack-dev liblapacke-dev libeigen3-dev gfortran \
+                          libhdf5-dev libprotobuf-dev protobuf-compiler \
+                          libgoogle-glog-dev libgflags-dev \
+                          qt5-default
+  ~/Programs/opencv/build> cmake -DCMAKE_BUILD_TYPE=Release -DOPENCV_EXTRA_MODULES_PATH=~/Programs/opencv_contrib/modules \
+                                 -DBUILD_opencv_python3=ON -DCMAKE_INSTALL_PREFIX:PATH=~/Programs/opencv/local \
+                                 -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_GSTREAMER=ON \
+                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3 ..
+  ~/Programs/opencv/build> make -j 2
+  ~/Programs/opencv/build> make install
+  ~/Programs/opencv/build> sudo ldconfig
+
+  ~> sudo apt-get install -y environment-modules tcl-dev
+  ~> tail ~/.bashrc
+     # Modules environment
+     export MODULEPATH="~/Modules"
+     module() { eval `/usr/lib/modulecmd.tcl bash $*`; }
+  ~> more ~/Modules/opencv
+     #%Module1.0
+     set rootdir ~/Programs/opencv/local
+     prepend-path PATH              $rootdir/bin
+     prepend-path LD_LIBRARY_PATH   $rootdir/lib
+     prepend-path CMAKE_MODULE_PATH $rootdir/lib/cmake/opencv4
+     prepend-path PYTHONPATH        $rootdir/lib/python3.6/dist-packages
+
+  ~> sudo apt-get install libblas-dev liblapack-dev libhdf5-dev python3-pip python3-tk python3-pil.imagetk
+  ~> pip3 install --upgrade pip
+  ~> pip3 install numpy Pillow Cython pkgconfig
+  ~> H5PY_SETUP_REQUIRES=0 pip3 install -U --no-build-isolation h5py
