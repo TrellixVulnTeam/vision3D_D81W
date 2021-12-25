@@ -62,6 +62,9 @@ Environment modules
      prepend-path CMAKE_MODULE_PATH $rootdir/lib/cmake/opencv4
      prepend-path PYTHONPATH        $rootdir/lib/python3.6/dist-packages
 
+vision3D dependencies
+---------------------
+
   ~> sudo apt-get install libblas-dev liblapack-dev libhdf5-dev python3-pip python3-tk python3-pil.imagetk
   ~> pip3 install --upgrade pip
   ~> pip3 install numpy Pillow Cython pkgconfig
@@ -69,6 +72,9 @@ Environment modules
 
 Test CSI camera with gstreamer:
 ===============================
+
+Friendlyarm: rockchip
+---------------------
 
   ~> sudo apt-get install v4l-utils
   ~> v4l2-ctl --list-devices
