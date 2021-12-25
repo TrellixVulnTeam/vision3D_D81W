@@ -63,3 +63,20 @@ Installation:
   ~> pip3 install --upgrade pip
   ~> pip3 install numpy Pillow Cython pkgconfig
   ~> H5PY_SETUP_REQUIRES=0 pip3 install -U --no-build-isolation h5py
+
+Test CSI camera with gstreamer:
+===============================
+
+  ~> sudo apt-get install v4l-utils
+  ~> v4l2-ctl --list-devices
+     rkisp1-statistics (platform: rkisp1):
+       /dev/video2
+       /dev/video3
+       /dev/video6
+       /dev/video7
+     rkisp1_mainpath (platform:ff910000.rkisp1):
+       /dev/video0
+       /dev/video1 <== CSI camera that can be used.
+     rkisp1_mainpath (platform:ff920000.rkisp1):
+       /dev/video4
+       /dev/video5 <== CSI camera that can be used.
