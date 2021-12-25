@@ -7,10 +7,6 @@ Nvidia: jetson nano
   ~> uname -a
      Linux nano 4.9.140-tegra #1 SMP PREEMPT Fri Jul 12 17:32:47 PDT 2020 aarch64 aarch64 aarch64 GNU/Linux
 
-  ~> tail ~/.bashrc
-     # Big/Little endian crash (x86 vs ARM)
-     export OPENBLAS_CORETYPE=ARMV8
-
   ~> sudo apt-get update
   ~> sudo apt-get -y upgrade
 
@@ -55,10 +51,6 @@ Friendlyarm: rockchip
 
   ~> uname -a
      Linux NanoPC-T4 4.4.167 #1 SMP Fri Jul 12 17:32:47 CST 2019 aarch64 aarch64 aarch64 GNU/Linux
-
-  ~> tail ~/.bashrc
-     # Big/Little endian crash (x86 vs ARM)
-     export OPENBLAS_CORETYPE=ARMV8
 
   ~> sudo apt-get update
   ~> sudo apt-get -y upgrade
@@ -116,6 +108,10 @@ Environment modules
 
 vision3D dependencies
 ---------------------
+
+  ~> tail ~/.bashrc
+     # Big/Little endian crash (x86 vs ARM)
+     export OPENBLAS_CORETYPE=ARMV8
 
   ~> sudo apt-get install libblas-dev liblapack-dev libhdf5-dev python3-pip python3-tk python3-pil.imagetk
   ~> pip3 install --upgrade pip
