@@ -1,6 +1,9 @@
 Installation:
 =============
 
+Friendlyarm: rockchip
+---------------------
+
   ~> uname -a
      Linux NanoPC-T4 4.4.167 #1 SMP Fri Jul 12 17:32:47 CST 2019 aarch64 aarch64 aarch64 GNU/Linux
 
@@ -89,3 +92,9 @@ Friendlyarm: rockchip
      rkisp1_mainpath (platform:ff920000.rkisp1):
        /dev/video4
        /dev/video5 <== CSI camera that can be used.
+
+  https://wiki.friendlyarm.com/wiki/index.php/How_to_use_MIPI_camera_on_RK3399_boards
+  http://wiki.friendlyarm.com/wiki/index.php/NanoPC-T4#Using_Camera_on_Linux_.28MIPI_Camera_OV13850_.26_OV4689.2C_and_webcam_logitect_C920.29
+
+  ~> gst-launch-1.0 rkisp device=/dev/video1 io-mode=1 ! video/x-raw,format=NV12,width=640,height=480,framerate=30/1 ! videoconvert ! autovideosink
+  ~> gst-launch-1.0 rkisp device=/dev/video5 io-mode=1 ! video/x-raw,format=NV12,width=640,height=480,framerate=30/1 ! videoconvert ! autovideosink
