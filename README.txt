@@ -46,6 +46,9 @@ Installation:
   ~/Programs/opencv/build> make install
   ~/Programs/opencv/build> sudo ldconfig
 
+Environment modules
+-------------------
+
   ~> sudo apt-get install -y environment-modules tcl-dev
   ~> tail ~/.bashrc
      # Modules environment
