@@ -155,3 +155,10 @@ Nvidia: jetson nano
 
   ~> gst-launch-1.0 nvarguscamerasrc sensor-id=0 ! "video/x-raw(memory:NVMM)" ! nvvidconv ! nvoverlaysink
   ~> gst-launch-1.0 -v v4l2src device=/dev/video1 ! 'image/jpeg, format=MJPG' ! jpegdec ! xvimagesink
+
+Vision3D:
+=========
+
+  ~/vision3D> module load opencv
+  ~/vision3D> python3 vision2D.py --videoID 1 --hardware arm-nanopc
+  ~/vision3D> python3 vision2D.py --videoID 5 --hardware arm-nanopc
