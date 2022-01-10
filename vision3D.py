@@ -44,9 +44,10 @@ class Vision3D(QWidget):
         self._createParameters(grpBoxLay, 'videoCapWidth', args['videoCapWidth'], 0, 1)
         self._createParameters(grpBoxLay, 'videoCapHeight', args['videoCapHeight'], 0, 2)
         self._createParameters(grpBoxLay, 'videoCapFrameRate', args['videoCapFrameRate'], 0, 3)
-        self._createParameters(grpBoxLay, 'videoFlipMethod', args['videoFlipMethod'], 0, 4)
-        self._createParameters(grpBoxLay, 'videoDspWidth', args['videoDspWidth'], 0, 5)
-        self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
+        if args['hardware'] == 'arm-jetson':
+            self._createParameters(grpBoxLay, 'videoFlipMethod', args['videoFlipMethod'], 0, 4)
+            self._createParameters(grpBoxLay, 'videoDspWidth', args['videoDspWidth'], 0, 5)
+            self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
         self.imgLblLeft = QLabel(self)
         self.imgLblLeft.resize(self.displayWidth, self.displayHeight)
         self.txtLblLeft = QLabel('Left')

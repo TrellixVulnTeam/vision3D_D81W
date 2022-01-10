@@ -9,20 +9,6 @@ class VideoStream():
     # Handle a video capture stream.
 
     def __init__(self, args):
-        # Default values.
-        if 'videoCapWidth' not in args:
-            args['videoCapWidth'] = 640
-        if 'videoCapHeight' not in args:
-            args['videoCapHeight'] = 360
-        if 'videoCapFrameRate' not in args:
-            args['videoCapFrameRate'] = 30
-        if 'videoFlipMethod' not in args:
-            args['videoFlipMethod'] = 0
-        if 'videoDspWidth' not in args:
-            args['videoDspWidth'] = 640
-        if 'videoDspHeight' not in args:
-            args['videoDspHeight'] = 360
-
         # Create a video capture stream.
         self._vid, self._nbFrames, self._start = None, 0, time.time()
         vidType = args['videoType']
@@ -33,6 +19,9 @@ class VideoStream():
         assert vidID is not None, 'no video stream ID.'
         if vidType == 'USB':
             self._vid = cv2.VideoCapture(vidID)
+            args['videoCapWidth'] = self._vid.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
+            args['videoCapHeight'] = self._vid.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT)
+            args['videoCapFrameRate'] = self._vid.get(cv2.cv.CV_CAP_PROP_FPS)
         elif vidType == 'CSI':
             cmd = self._gstreamerPipeline(args)
             self._vid = cv2.VideoCapture(cmd%vidID, cv2.CAP_GSTREAMER)
