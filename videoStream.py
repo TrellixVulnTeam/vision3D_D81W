@@ -58,8 +58,9 @@ class VideoStream():
                 gst += 'video/x-raw, width=(int)%d, height=(int)%d, format=(string)BGRx ! '
                 gst += 'videoconvert ! '
                 gst += 'video/x-raw, format=(string)BGR ! appsink'
-                flipMethod, videoDspWidth, videoDspHeight = args['flipMethod'], args['videoDspWidth'], args['videoDspHeight']
-                data = (videoCapWidth, videoCapHeight, videoFrameRate, flipMethod, videoDspWidth, videoDspHeight)
+                videoFlipMethod = args['videoFlipMethod']
+                videoDspWidth, videoDspHeight = args['videoDspWidth'], args['videoDspHeight']
+                data = (videoCapWidth, videoCapHeight, videoFrameRate, videoFlipMethod, videoDspWidth, videoDspHeight)
             elif hardware == 'arm-nanopc': # FriendlyARM.
                 gst = 'rkisp device=/dev/video%%d io-mode=1 ! '
                 gst += 'video/x-raw, format=NV12, width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! '
