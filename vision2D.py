@@ -33,15 +33,16 @@ def cmdLineArgs():
                         help='define display width')
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
-    parser.add_argument('--calibration', type=int, nargs=3, metavar=('NF', 'CX', 'CY'),
-                        default=[10, 7, 10],
-                        help='calibration: NF frames, chessboard size (CX, CY)')
+    parser.add_argument('--calibration', type=int, nargs=4, metavar=('NF', 'CX', 'CY', 'SS'),
+                        default=[10, 7, 10, 25],
+                        help='calibration: NF frames, chessboard size (CX, CY), SS square size (mm)')
     args = parser.parse_args()
 
     # Convert calibration parameters.
     args.nbFrames = args.calibration[0]
     args.chessboardX = args.calibration[1]
     args.chessboardY = args.calibration[2]
+    args.squareSize = args.calibration[3]
 
     return args
 
@@ -65,6 +66,7 @@ def chessboardCalibration(args, frame, obj, img):
     cbX, cbY = args.chessboardX, args.chessboardY
     objPt = np.zeros((cbX*cbY, 3), np.float32)
     objPt[:, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
+    objPt = objPt*args.squareSize # This makes 3D points spaced as they really are on the (physical) chessboard.
 
     # Find the chess board corners
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
