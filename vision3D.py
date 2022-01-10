@@ -13,17 +13,17 @@ import cv2
 import numpy as np
 
 class Vision3DEdit(QLineEdit):
-    def __init__(self, param, changeParamSignal):
+    def __init__(self, param, vision3D):
         # Initialise.
         super().__init__()
         self.edt = QLineEdit()
         self._param = param # Track parameter associated to QLineEdit.
-        self._changeParamSignal = changeParamSignal
+        self._vision3D = vision3D
 
     def onParameterChanged(self):
         # Callback on parameter change.
         value = self.edt.text() # Text which has been modified.
-        self._changeParamSignal.emit(self._param, value) # Emit value and associated parameter.
+        self._vision3D.changeParamSignal.emit(self._param, value) # Emit value and associated parameter.
 
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
@@ -34,26 +34,26 @@ class Vision3D(QWidget):
         super().__init__()
         self.setWindowTitle('Vision3D')
 
-        # Create widgets.
-        self.displayWidth = 640
-        self.displayHeight = 480
+        # Create parameters.
+        self._args = args
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
         self._edtParams = [] # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
-        self._createParameters(grpBoxLay, 'videoCapWidth', args['videoCapWidth'], 0, 1)
-        self._createParameters(grpBoxLay, 'videoCapHeight', args['videoCapHeight'], 0, 2)
-        self._createParameters(grpBoxLay, 'videoCapFrameRate', args['videoCapFrameRate'], 0, 3)
-        if args['hardware'] == 'arm-jetson':
-            self._createParameters(grpBoxLay, 'videoFlipMethod', args['videoFlipMethod'], 0, 4)
-            self._createParameters(grpBoxLay, 'videoDspWidth', args['videoDspWidth'], 0, 5)
-            self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
+        self._createParameters(grpBoxLay, 'videoCapWidth', 0, 1)
+        self._createParameters(grpBoxLay, 'videoCapHeight', 0, 2)
+        self._createParameters(grpBoxLay, 'videoCapFrameRate', 0, 3)
+        if self._args['hardware'] == 'arm-jetson':
+            self._createParameters(grpBoxLay, 'videoFlipMethod', 0, 4)
+            self._createParameters(grpBoxLay, 'videoDspWidth', 0, 5)
+            self._createParameters(grpBoxLay, 'videoDspHeight', 0, 6)
+
+        # Create widgets.
         self.imgLblLeft = QLabel(self)
-        self.imgLblLeft.resize(self.displayWidth, self.displayHeight)
         self.txtLblLeft = QLabel('Left')
         self.imgLblRight = QLabel(self)
-        self.imgLblRight.resize(self.displayWidth, self.displayHeight)
         self.txtLblRight = QLabel('Right')
+        self.resizeImages()
 
         # Handle alignment.
         self.txtLblLeft.setAlignment(Qt.AlignCenter)
@@ -71,21 +71,22 @@ class Vision3D(QWidget):
         self.setLayout(grdLay)
 
         # Start threads.
-        argsLeft = {key: val for key, val in args.items() if key != 'videoIDRight'}
+        argsLeft = {key: val for key, val in self._args.items() if key != 'videoIDRight'}
         self.threadLeft = VideoThread(argsLeft, self.imgLblLeft, self.txtLblLeft, self)
         self.threadLeft.changePixmapSignal.connect(self.updateImage)
         self.threadLeft.start()
-        argsRight = {key: val for key, val in args.items() if key != 'videoIDLeft'}
+        argsRight = {key: val for key, val in self._args.items() if key != 'videoIDLeft'}
         self.threadRight = VideoThread(argsRight, self.imgLblRight, self.txtLblRight, self)
         self.threadRight.changePixmapSignal.connect(self.updateImage)
         self.threadRight.start()
 
-    def _createParameters(self, grpBoxLay, param, val, row, col, enable=False):
+    def _createParameters(self, grpBoxLay, param, row, col, enable=False):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DEdt = Vision3DEdit(param, self.changeParamSignal)
+        v3DEdt = Vision3DEdit(param, self)
         v3DEdt.edt.setValidator(QIntValidator())
         v3DEdt.edt.setEnabled(enable)
+        val = self._args[param]
         v3DEdt.edt.setText(str(val))
         v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
         grdLay = QGridLayout()
@@ -93,6 +94,17 @@ class Vision3D(QWidget):
         grdLay.addWidget(v3DEdt.edt, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
         self._edtParams.append(v3DEdt) # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
+
+    def resizeImages(self):
+        # Resize images.
+        if self._args['hardware'] == 'arm-jetson':
+            displayWidth = self._args['videoDspWidth']
+            displayHeight = self._args['videoDspHeight']
+        else:
+            displayWidth = self._args['videoCapWidth']
+            displayHeight = self._args['videoCapHeight']
+        self.imgLblLeft.resize(displayWidth, displayHeight)
+        self.imgLblRight.resize(displayWidth, displayHeight)
 
     def closeEvent(self, event):
         # Close application.
@@ -107,6 +119,8 @@ class Vision3D(QWidget):
         # Update thread image.
         qtImg = self.convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
+
+        # Update thread label.
         txt = txtLbl.text()
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
@@ -114,10 +128,9 @@ class Vision3D(QWidget):
     def convertCvQt(self, frame):
         # Convert frame to pixmap.
         rgbImg = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        height, width, channel = rgbImg.shape
-        bytesPerLine = channel * width
-        qtImg = QImage(rgbImg.data, width, height, bytesPerLine, QImage.Format_RGB888)
-        qtImg = qtImg.scaled(self.displayWidth, self.displayHeight, Qt.KeepAspectRatio)
+        displayHeight, displayWidth, channel = rgbImg.shape
+        bytesPerLine = channel * displayWidth
+        qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
         return QPixmap.fromImage(qtImg)
 
 def cmdLineArgs():
