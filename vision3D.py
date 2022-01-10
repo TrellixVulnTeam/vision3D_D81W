@@ -49,33 +49,33 @@ class Vision3D(QWidget):
         self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
         self.imgLblLeft = QLabel(self)
         self.imgLblLeft.resize(self.displayWidth, self.displayHeight)
-        self.textLblLeft = QLabel('Left')
+        self.txtLblLeft = QLabel('Left')
         self.imgLblRight = QLabel(self)
         self.imgLblRight.resize(self.displayWidth, self.displayHeight)
-        self.textLblRight = QLabel('Right')
+        self.txtLblRight = QLabel('Right')
 
         # Handle alignment.
-        self.textLblLeft.setAlignment(Qt.AlignCenter)
+        self.txtLblLeft.setAlignment(Qt.AlignCenter)
         self.imgLblLeft.setAlignment(Qt.AlignCenter)
-        self.textLblRight.setAlignment(Qt.AlignCenter)
+        self.txtLblRight.setAlignment(Qt.AlignCenter)
         self.imgLblRight.setAlignment(Qt.AlignCenter)
 
         # Handle layout.
         grdLay = QGridLayout()
         grdLay.addWidget(grpBox, 0, 0, 1, 2)
-        grdLay.addWidget(self.textLblLeft, 1, 0)
-        grdLay.addWidget(self.textLblRight, 1, 1)
+        grdLay.addWidget(self.txtLblLeft, 1, 0)
+        grdLay.addWidget(self.txtLblRight, 1, 1)
         grdLay.addWidget(self.imgLblLeft, 2, 0)
         grdLay.addWidget(self.imgLblRight, 2, 1)
         self.setLayout(grdLay)
 
         # Start threads.
         argsLeft = {key: val for key, val in args.items() if key != 'videoIDRight'}
-        self.threadLeft = VideoThread(argsLeft, self.imgLblLeft, self)
+        self.threadLeft = VideoThread(argsLeft, self.imgLblLeft, self.txtLblLeft, self)
         self.threadLeft.changePixmapSignal.connect(self.updateImage)
         self.threadLeft.start()
         argsRight = {key: val for key, val in args.items() if key != 'videoIDLeft'}
-        self.threadRight = VideoThread(argsRight, self.imgLblRight, self)
+        self.threadRight = VideoThread(argsRight, self.imgLblRight, self.txtLblRight, self)
         self.threadRight.changePixmapSignal.connect(self.updateImage)
         self.threadRight.start()
 
@@ -101,11 +101,14 @@ class Vision3D(QWidget):
             v3DEdt.close() # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
-    @pyqtSlot(np.ndarray, QLabel)
-    def updateImage(self, frame, imgLbl):
+    @pyqtSlot(np.ndarray, QLabel, int, QLabel)
+    def updateImage(self, frame, imgLbl, fps, txtLbl):
         # Update thread image.
         qtImg = self.convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
+        txt = txtLbl.text()
+        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
+        txtLbl.setText(lbl + ' - FPS %d'%fps)
 
     def convertCvQt(self, frame):
         # Convert frame to pixmap.

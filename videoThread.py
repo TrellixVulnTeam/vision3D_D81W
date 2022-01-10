@@ -9,13 +9,14 @@ import numpy as np
 
 class VideoThread(QThread):
     # Signals enabling to update application from thread.
-    changePixmapSignal = pyqtSignal(np.ndarray, QLabel)
+    changePixmapSignal = pyqtSignal(np.ndarray, QLabel, int, QLabel)
 
-    def __init__(self, args, imgLbl, vision3D):
+    def __init__(self, args, imgLbl, txtLbl, vision3D):
         # Initialise.
         super().__init__()
         self._args = args
         self._imgLbl = imgLbl
+        self._txtLbl = txtLbl
         vision3D.changeParamSignal.connect(self.onParameterChanged)
         self._vid = VideoStream(self._args)
 
@@ -29,9 +30,9 @@ class VideoThread(QThread):
     def run(self):
         # Run thread.
         while self._vid.isOpened():
-            frameOK, frame, _ = self._vid.read()
+            frameOK, frame, fps = self._vid.read()
             if frameOK:
-                self.changePixmapSignal.emit(frame, self._imgLbl)
+                self.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
         self._vid.release()
 
     def stop(self):
