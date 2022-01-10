@@ -43,7 +43,7 @@ class Vision3D(QWidget):
         self._edtParams = [] # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
         self._createParameters(grpBoxLay, 'videoCapWidth', args['videoCapWidth'], 0, 1)
         self._createParameters(grpBoxLay, 'videoCapHeight', args['videoCapHeight'], 0, 2)
-        self._createParameters(grpBoxLay, 'videoFrameRate', args['videoFrameRate'], 0, 3)
+        self._createParameters(grpBoxLay, 'videoCapFrameRate', args['videoCapFrameRate'], 0, 3)
         self._createParameters(grpBoxLay, 'videoFlipMethod', args['videoFlipMethod'], 0, 4)
         self._createParameters(grpBoxLay, 'videoDspWidth', args['videoDspWidth'], 0, 5)
         self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
@@ -134,8 +134,8 @@ def cmdLineArgs():
                         help='define capture width')
     parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
                         help='define capture height')
-    parser.add_argument('--videoFrameRate', type=int, default=30, metavar='FR',
-                        help='define frame rate')
+    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
+                        help='define capture frame rate')
     parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
                         help='define flip method')
     parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',

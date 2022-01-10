@@ -25,8 +25,8 @@ def cmdLineArgs():
                         help='define capture width')
     parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
                         help='define capture height')
-    parser.add_argument('--videoFrameRate', type=int, default=30, metavar='FR',
-                        help='define frame rate')
+    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
+                        help='define capture frame rate')
     parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
                         help='define flip method')
     parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',

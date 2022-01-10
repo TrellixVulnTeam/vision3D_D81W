@@ -14,8 +14,8 @@ class VideoStream():
             args['videoCapWidth'] = 640
         if 'videoCapHeight' not in args:
             args['videoCapHeight'] = 360
-        if 'videoFrameRate' not in args:
-            args['videoFrameRate'] = 30
+        if 'videoCapFrameRate' not in args:
+            args['videoCapFrameRate'] = 30
         if 'videoFlipMethod' not in args:
             args['videoFlipMethod'] = 0
         if 'videoDspWidth' not in args:
@@ -48,7 +48,7 @@ class VideoStream():
         elif vidType == 'CSI':
             gst, data, hardware = '', None, args['hardware']
             videoCapWidth, videoCapHeight = args['videoCapWidth'], args['videoCapHeight']
-            videoFrameRate = args['videoFrameRate']
+            videoCapFrameRate = args['videoCapFrameRate']
             if hardware == 'arm-jetson': # Nvidia.
                 gst = 'nvarguscamerasrc sensor-id=%%d ! '
                 gst += 'video/x-raw(memory:NVMM), '
@@ -60,12 +60,12 @@ class VideoStream():
                 gst += 'video/x-raw, format=(string)BGR ! appsink'
                 videoFlipMethod = args['videoFlipMethod']
                 videoDspWidth, videoDspHeight = args['videoDspWidth'], args['videoDspHeight']
-                data = (videoCapWidth, videoCapHeight, videoFrameRate, videoFlipMethod, videoDspWidth, videoDspHeight)
+                data = (videoCapWidth, videoCapHeight, videoCapFrameRate, videoFlipMethod, videoDspWidth, videoDspHeight)
             elif hardware == 'arm-nanopc': # FriendlyARM.
                 gst = 'rkisp device=/dev/video%%d io-mode=1 ! '
                 gst += 'video/x-raw, format=NV12, width=(int)%d, height=(int)%d, framerate=(fraction)%d/1 ! '
                 gst += 'videoconvert ! appsink'
-                data = (videoCapWidth, videoCapHeight, videoFrameRate)
+                data = (videoCapWidth, videoCapHeight, videoCapFrameRate)
             else:
                 assert True, 'create video capture KO, unknown hardware.'
             cmd = gst%data
