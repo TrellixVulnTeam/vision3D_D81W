@@ -117,6 +117,7 @@ vision3D dependencies
   ~> pip3 install --upgrade pip
   ~> pip3 install numpy Pillow Cython pkgconfig
   ~> H5PY_SETUP_REQUIRES=0 pip3 install -U --no-build-isolation h5py
+  ~> sudo apt-get install python3-pyqt5
 
 Test CSI camera with gstreamer:
 ===============================
@@ -162,3 +163,4 @@ Vision3D:
   ~/vision3D> module load opencv
   ~/vision3D> python3 vision2D.py --videoID 1 --hardware arm-nanopc
   ~/vision3D> python3 vision2D.py --videoID 5 --hardware arm-nanopc
+  ~/vision3D> python3 vision3D.py --videoIDLeft 1 --videoIDRight 5 --hardware arm-nanopc
