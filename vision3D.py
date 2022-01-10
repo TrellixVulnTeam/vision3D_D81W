@@ -5,13 +5,30 @@
 import sys
 import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import pyqtSlot, Qt
+from PyQt5.QtWidgets import QGroupBox, QLineEdit
+from PyQt5.QtGui import QImage, QPixmap, QIntValidator
+from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from videoThread import VideoThread
 import cv2
 import numpy as np
 
+class Vision3DEdit(QLineEdit):
+    def __init__(self, param, changeParamSignal):
+        # Initialise.
+        super().__init__()
+        self.edt = QLineEdit()
+        self._param = param # Track parameter associated to QLineEdit.
+        self._changeParamSignal = changeParamSignal
+
+    def onParameterChanged(self):
+        # Callback on parameter change.
+        value = self.edt.text() # Text which has been modified.
+        self._changeParamSignal.emit(self._param, value) # Emit value and associated parameter.
+
 class Vision3D(QWidget):
+    # Signals enabling to update thread from application.
+    changeParamSignal = pyqtSignal(str, str)
+
     def __init__(self, args):
         # Initialise.
         super().__init__()
@@ -20,6 +37,16 @@ class Vision3D(QWidget):
         # Create widgets.
         self.displayWidth = 640
         self.displayHeight = 480
+        grpBox = QGroupBox('Parameters')
+        grpBoxLay = QGridLayout()
+        grpBox.setLayout(grpBoxLay)
+        self._edtParams = [] # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
+        self._createParameters(grpBoxLay, 'videoCapWidth', args['videoCapWidth'], 0, 1)
+        self._createParameters(grpBoxLay, 'videoCapHeight', args['videoCapHeight'], 0, 2)
+        self._createParameters(grpBoxLay, 'videoFrameRate', args['videoFrameRate'], 0, 3)
+        self._createParameters(grpBoxLay, 'videoFlipMethod', args['videoFlipMethod'], 0, 4)
+        self._createParameters(grpBoxLay, 'videoDspWidth', args['videoDspWidth'], 0, 5)
+        self._createParameters(grpBoxLay, 'videoDspHeight', args['videoDspHeight'], 0, 6)
         self.imgLblLeft = QLabel(self)
         self.imgLblLeft.resize(self.displayWidth, self.displayHeight)
         self.textLblLeft = QLabel('Left')
@@ -34,27 +61,44 @@ class Vision3D(QWidget):
         self.imgLblRight.setAlignment(Qt.AlignCenter)
 
         # Handle layout.
-        gridLay = QGridLayout()
-        gridLay.addWidget(self.textLblLeft, 0, 0)
-        gridLay.addWidget(self.imgLblLeft, 1, 0)
-        gridLay.addWidget(self.textLblRight, 0, 1)
-        gridLay.addWidget(self.imgLblRight, 1, 1)
-        self.setLayout(gridLay)
+        grdLay = QGridLayout()
+        grdLay.addWidget(grpBox, 0, 0, 1, 2)
+        grdLay.addWidget(self.textLblLeft, 1, 0)
+        grdLay.addWidget(self.textLblRight, 1, 1)
+        grdLay.addWidget(self.imgLblLeft, 2, 0)
+        grdLay.addWidget(self.imgLblRight, 2, 1)
+        self.setLayout(grdLay)
 
         # Start threads.
         argsLeft = {key: val for key, val in args.items() if key != 'videoIDRight'}
-        self.threadLeft = VideoThread(argsLeft, self.imgLblLeft)
+        self.threadLeft = VideoThread(argsLeft, self.imgLblLeft, self)
         self.threadLeft.changePixmapSignal.connect(self.updateImage)
         self.threadLeft.start()
         argsRight = {key: val for key, val in args.items() if key != 'videoIDLeft'}
-        self.threadRight = VideoThread(argsRight, self.imgLblRight)
+        self.threadRight = VideoThread(argsRight, self.imgLblRight, self)
         self.threadRight.changePixmapSignal.connect(self.updateImage)
         self.threadRight.start()
+
+    def _createParameters(self, grpBoxLay, param, val, row, col, enable=False):
+        # Create one parameter.
+        lbl = QLabel(param)
+        v3DEdt = Vision3DEdit(param, self.changeParamSignal)
+        v3DEdt.edt.setValidator(QIntValidator())
+        v3DEdt.edt.setEnabled(enable)
+        v3DEdt.edt.setText(str(val))
+        v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
+        grdLay = QGridLayout()
+        grdLay.addWidget(lbl, 0, 0)
+        grdLay.addWidget(v3DEdt.edt, 0, 1)
+        grpBoxLay.addLayout(grdLay, row, col)
+        self._edtParams.append(v3DEdt) # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
 
     def closeEvent(self, event):
         # Close application.
         self.threadLeft.stop()
         self.threadRight.stop()
+        for v3DEdt in self._edtParams:
+            v3DEdt.close() # Vision3DEdit instances lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
     @pyqtSlot(np.ndarray, QLabel)

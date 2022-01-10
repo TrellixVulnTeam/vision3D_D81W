@@ -3,31 +3,38 @@
 
 # Imports.
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 from videoStream import VideoStream
 import numpy as np
 
 class VideoThread(QThread):
-    # Signals needed to update thread from application.
+    # Signals enabling to update application from thread.
     changePixmapSignal = pyqtSignal(np.ndarray, QLabel)
 
-    def __init__(self, args, imgLbl):
+    def __init__(self, args, imgLbl, vision3D):
         # Initialise.
         super().__init__()
-        self._runFlag = True
         self._args = args
         self._imgLbl = imgLbl
+        vision3D.changeParamSignal.connect(self.onParameterChanged)
+        self._vid = VideoStream(self._args)
+
+    @pyqtSlot(str, str)
+    def onParameterChanged(self, param, value):
+        self.stop() # Stop thread with previous capture (previous parameters).
+        self._args[param] = int(value)
+        self._vid = VideoStream(self._args)
+        self.run() # Rerun thread with new capture (new parameters).
 
     def run(self):
         # Run thread.
-        vid = VideoStream(self._args)
-        while vid.isOpened() and self._runFlag:
-            frameOK, frame, _ = vid.read()
+        while self._vid.isOpened():
+            frameOK, frame, _ = self._vid.read()
             if frameOK:
                 self.changePixmapSignal.emit(frame, self._imgLbl)
-        vid.release()
+        self._vid.release()
 
     def stop(self):
         # Stop thread.
-        self._runFlag = False
+        self._vid.release()
         self.wait()
