@@ -12,7 +12,7 @@ class VideoStream():
         # Create a video capture stream.
         self._vid, self._nbFrames, self._start = None, 0, time.time()
         vidType = args['videoType']
-        vidID = self.getVideoID(args)
+        vidID = args['videoID']
         if vidType == 'USB':
             self._vid = cv2.VideoCapture(vidID)
             args['videoCapWidth'] = self._vid.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH)
@@ -25,17 +25,6 @@ class VideoStream():
             assert True, 'create video capture KO, unknown video type.'
         self.width = args['videoCapWidth']
         self.height = args['videoCapHeight']
-
-    @staticmethod
-    def getVideoID(args):
-        # Get video ID.
-        vidID = None
-        for key, val in args.items():
-            if 'videoID' in key:
-                vidID = val
-                break
-        assert vidID is not None, 'no video stream ID.'
-        return vidID
 
     @staticmethod
     def _gstreamerPipeline(args):

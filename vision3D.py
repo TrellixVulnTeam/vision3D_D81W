@@ -46,7 +46,9 @@ class Vision3DRadioButton(QRadioButton):
         self.rdoBoxRaw = QRadioButton('raw')
         self.rdoBoxRaw.mode = 'raw'
         self.rdoBoxUnd = QRadioButton('undistort')
-        self.rdoBoxUnd.mode = 'undistort'
+        self.rdoBoxUnd.mode = 'und'
+        self.rdoBoxStr = QRadioButton('stereo')
+        self.rdoBoxStr.mode = 'str'
         self._param = param # Track parameter associated to QLineEdit.
         self._vision3D = vision3D
 
@@ -67,7 +69,7 @@ class Vision3D(QWidget):
         self.setWindowTitle('Vision3D')
 
         # Create parameters.
-        self._args = args
+        self._args = args.copy()
         self._args['alpha'] = 0.
         self._args['ROI'] = False
         self._args['mode'] = 'raw'
@@ -86,7 +88,7 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 1, 3)
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 4)
         self._createEditParameters(grpBoxLay, 'alpha', 1, 4, enable=True, objType='double')
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 4)
+        self._createChkBoxParameters(grpBoxLay, 'ROI', 1, 5)
 
         # Create widgets.
         self.imgLblLeft = QLabel(self)
@@ -113,12 +115,12 @@ class Vision3D(QWidget):
         self.setLayout(grdLay)
 
         # Start threads.
-        argsLeft = {key: val for key, val in self._args.items() if key != 'videoIDRight'}
-        self._threadLeft = VideoThread(argsLeft, self.imgLblLeft, self.txtLblLeft, self)
+        videoIDLeft = args['videoIDLeft']
+        self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
         self._threadLeft.changePixmapSignal.connect(self.updateImage)
         self._threadLeft.start()
-        argsRight = {key: val for key, val in self._args.items() if key != 'videoIDLeft'}
-        self._threadRight = VideoThread(argsRight, self.imgLblRight, self.txtLblRight, self)
+        videoIDRight = args['videoIDRight']
+        self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
         self._threadRight.changePixmapSignal.connect(self.updateImage)
         self._threadRight.start()
 
@@ -159,13 +161,16 @@ class Vision3D(QWidget):
         v3DRdoBtn = Vision3DRadioButton(param, self)
         v3DRdoBtn.rdoBoxRaw.setChecked(True)
         v3DRdoBtn.rdoBoxUnd.setChecked(False)
+        v3DRdoBtn.rdoBoxStr.setChecked(False)
         v3DRdoBtn.rdoBoxRaw.toggled.connect(v3DRdoBtn.onParameterChanged)
         v3DRdoBtn.rdoBoxUnd.toggled.connect(v3DRdoBtn.onParameterChanged)
+        v3DRdoBtn.rdoBoxStr.toggled.connect(v3DRdoBtn.onParameterChanged)
         grdLay = QGridLayout()
         grdLay.addWidget(lbl, 0, 0)
         grdLay.addWidget(v3DRdoBtn.rdoBoxRaw, 0, 1)
         grdLay.addWidget(v3DRdoBtn.rdoBoxUnd, 0, 2)
-        grpBoxLay.addLayout(grdLay, row, col)
+        grdLay.addWidget(v3DRdoBtn.rdoBoxStr, 0, 3)
+        grpBoxLay.addLayout(grdLay, row, col, 1, 2)
         self._rdoParams.append(v3DRdoBtn) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
     def _resizeImages(self):
