@@ -8,6 +8,7 @@ from videoStream import VideoStream
 import cv2
 import numpy as np
 import h5py
+import glob
 
 def cmdLineArgs():
     # Create parser.
@@ -36,6 +37,8 @@ def cmdLineArgs():
     parser.add_argument('--calibration', type=int, nargs=4, metavar=('NF', 'CX', 'CY', 'SS'),
                         default=[10, 7, 10, 25],
                         help='calibration: NF frames, chessboard size (CX, CY), SS square size (mm)')
+    parser.add_argument('--calibration-reload-frames', dest='reload', action='store_true',
+                        help='reload frames, if any, used during previous calibration.')
     args = parser.parse_args()
 
     # Convert calibration parameters.
@@ -48,7 +51,8 @@ def cmdLineArgs():
 
 def calibrateCamera(args, obj, img, gray):
     # Camera calibration.
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj, img, gray.shape[::-1], None, None)
+    shape = gray.shape[::-1]
+    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj, img, shape, None, None)
     videoName = '%s%d'%(args.videoType, args.videoID)
     fdh = h5py.File('%s.h5'%videoName, 'w')
     fdh.create_dataset('ret', data=ret)
@@ -56,6 +60,9 @@ def calibrateCamera(args, obj, img, gray):
     fdh.create_dataset('dist', data=dist)
     fdh.create_dataset('rvecs', data=rvecs)
     fdh.create_dataset('tvecs', data=tvecs)
+    fdh.create_dataset('obj', data=obj)
+    fdh.create_dataset('img', data=img)
+    fdh.create_dataset('shape', data=shape)
     fdh.close()
 
 def chessboardCalibration(args, frame, obj, img):
@@ -90,7 +97,11 @@ def main():
     # Data needed for calibration.
     obj = [] # 3d point in real world space
     img = [] # 2d points in image plane.
-    gray, frames = None, []
+    gray = None
+    frames, videoName = [], '%s%d'%(args.videoType, args.videoID)
+    if args.reload: # Reload previous frames on demand.
+        for frame in glob.glob(videoName + '-*.jpg'):
+            frames.append(frame)
 
     # Capture video stream.
     vid = VideoStream(vars(args))
@@ -131,6 +142,11 @@ def main():
         if args.nbFrames == len(frames):
             print('Calibrating...', flush=True)
             calibrateCamera(args, obj, img, gray)
+
+            # Save frames used to calibrate.
+            print('Saving frames...', flush=True)
+            for idx, frame in enumerate(frames):
+                cv2.imwrite(videoName + '-%02d.jpg'%idx, frame)
             break
 
     # After the loop release the video stream.
