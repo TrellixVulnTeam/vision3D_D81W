@@ -236,6 +236,7 @@ def cmdLineArgs():
                         help='define display width')
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
+    parser.add_argument('--debug', dest='debug', action='store_true')
     args = parser.parse_args()
 
     return args

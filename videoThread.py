@@ -9,6 +9,7 @@ import os
 import h5py
 import cv2
 import numpy as np
+import logging
 
 class VideoThread(QThread):
     # Signals enabling to update application from thread.
@@ -26,18 +27,22 @@ class VideoThread(QThread):
 
         # Get camera calibration parameters if any.
         self._cpr = {}
-        vidID = VideoStream.getVideoID(args)
-        videoName = '%s%d'%(args['videoType'], vidID)
+        self._vidID = VideoStream.getVideoID(args)
+        videoName = '%s%d'%(args['videoType'], self._vidID)
         fname = '%s.h5'%videoName
         if os.path.isfile(fname):
             fdh = h5py.File(fname, 'r')
             self._cpr['mtx'] = fdh['mtx'][...]
             self._cpr['dist'] = fdh['dist'][...]
             fdh.close()
-        assert len(self._cpr.keys()) > 0, 'camera %d is not calibrated'%vidID
+        assert len(self._cpr.keys()) > 0, 'camera %d is not calibrated'%self._vidID
 
         # Set up alpha.
         self._onAlphaChanged()
+
+        # Set up debug logging on demand.
+        if self._args['debug']:
+            logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.DEBUG)
 
     @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
@@ -85,6 +90,10 @@ class VideoThread(QThread):
                         roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
                         frame = roiFrame # Replace frame with ROI of undistorted frame.
 
+                # Debug on demand.
+                if self._args['debug']:
+                    self._logging(fps)
+
                 # Get image back to application.
                 self.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
         self._vid.release()
@@ -93,3 +102,12 @@ class VideoThread(QThread):
         # Stop thread.
         self._run = False
         self.wait()
+
+    def _logging(self, fps):
+        # Log current informations.
+        msg = 'stream %d'%self._vidID
+        msg += ', FPS %d'%fps
+        msg += ', mode %s'%self._args['mode']
+        msg += ', alpha %.3f'%self._args['alpha']
+        msg += ', ROI %s'%self._args['ROI']
+        logging.debug(msg)
