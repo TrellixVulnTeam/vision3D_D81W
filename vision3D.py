@@ -93,7 +93,7 @@ class Vision3D(QWidget):
         self.txtLblLeft = QLabel('Left')
         self.imgLblRight = QLabel(self)
         self.txtLblRight = QLabel('Right')
-        self.resizeImages()
+        self._resizeImages()
 
         # Handle alignment.
         grpBox.setAlignment(Qt.AlignCenter)
@@ -114,13 +114,13 @@ class Vision3D(QWidget):
 
         # Start threads.
         argsLeft = {key: val for key, val in self._args.items() if key != 'videoIDRight'}
-        self.threadLeft = VideoThread(argsLeft, self.imgLblLeft, self.txtLblLeft, self)
-        self.threadLeft.changePixmapSignal.connect(self.updateImage)
-        self.threadLeft.start()
+        self._threadLeft = VideoThread(argsLeft, self.imgLblLeft, self.txtLblLeft, self)
+        self._threadLeft.changePixmapSignal.connect(self.updateImage)
+        self._threadLeft.start()
         argsRight = {key: val for key, val in self._args.items() if key != 'videoIDLeft'}
-        self.threadRight = VideoThread(argsRight, self.imgLblRight, self.txtLblRight, self)
-        self.threadRight.changePixmapSignal.connect(self.updateImage)
-        self.threadRight.start()
+        self._threadRight = VideoThread(argsRight, self.imgLblRight, self.txtLblRight, self)
+        self._threadRight.changePixmapSignal.connect(self.updateImage)
+        self._threadRight.start()
 
     def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int'):
         # Create one parameter.
@@ -168,7 +168,7 @@ class Vision3D(QWidget):
         grpBoxLay.addLayout(grdLay, row, col)
         self._rdoParams.append(v3DRdoBtn) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
-    def resizeImages(self):
+    def _resizeImages(self):
         # Resize images.
         if self._args['hardware'] == 'arm-jetson':
             displayWidth = self._args['videoDspWidth']
@@ -181,8 +181,8 @@ class Vision3D(QWidget):
 
     def closeEvent(self, event):
         # Close application.
-        self.threadLeft.stop()
-        self.threadRight.stop()
+        self._threadLeft.stop()
+        self._threadRight.stop()
         for v3DEdt in self._edtParams:
             v3DEdt.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         for v3DChkBox in self._chkParams:
