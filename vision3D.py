@@ -11,6 +11,7 @@ from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
 from videoThread import VideoThread
 import cv2
 import numpy as np
+import threading
 
 class Vision3DEdit(QLineEdit):
     def __init__(self, param, objType, vision3D):
@@ -25,6 +26,8 @@ class Vision3DEdit(QLineEdit):
         # Callback on parameter change.
         value = self.edt.text() # Text which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
+        if self.edt.isEnabled():
+            self._vision3D.disableCalibration()
 
 class Vision3DCheckBox(QCheckBox):
     def __init__(self, param, vision3D):
@@ -58,10 +61,13 @@ class Vision3DRadioButton(QRadioButton):
         if rdoBtn.isChecked():
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.disableCalibration()
 
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
     changeParamSignal = pyqtSignal(str, str, object) # object may be int, double, ...
+    lock = threading.Lock()
+    calibratedThreads = 0
 
     def __init__(self, args):
         # Initialise.
@@ -77,8 +83,6 @@ class Vision3D(QWidget):
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
         self._edtParams = []
-        self._chkParams = []
-        self._rdoParams = []
         self._createEditParameters(grpBoxLay, 'videoCapWidth', 0, 1)
         self._createEditParameters(grpBoxLay, 'videoCapHeight', 0, 2)
         self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 0, 3)
@@ -95,7 +99,7 @@ class Vision3D(QWidget):
         self.txtLblLeft = QLabel('Left')
         self.imgLblRight = QLabel(self)
         self.txtLblRight = QLabel('Right')
-        self._resizeImages()
+        self._resizeFrames()
 
         # Handle alignment.
         grpBox.setAlignment(Qt.AlignCenter)
@@ -117,11 +121,13 @@ class Vision3D(QWidget):
         # Start threads.
         videoIDLeft = args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
-        self._threadLeft.changePixmapSignal.connect(self.updateImage)
+        self._threadLeft.changePixmapSignal.connect(self.updateFrame)
+        self._threadLeft.calibrationDoneSignal.connect(self.calibrationDone)
         self._threadLeft.start()
         videoIDRight = args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
-        self._threadRight.changePixmapSignal.connect(self.updateImage)
+        self._threadRight.changePixmapSignal.connect(self.updateFrame)
+        self._threadRight.calibrationDoneSignal.connect(self.calibrationDone)
         self._threadRight.start()
 
     def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int'):
@@ -132,7 +138,6 @@ class Vision3D(QWidget):
             v3DEdt.edt.setValidator(QIntValidator())
         elif objType == 'double':
             v3DEdt.edt.setValidator(QDoubleValidator())
-        v3DEdt.edt.setEnabled(enable)
         val = self._args[param]
         v3DEdt.edt.setText(str(val))
         v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
@@ -140,47 +145,53 @@ class Vision3D(QWidget):
         grdLay.addWidget(lbl, 0, 0)
         grdLay.addWidget(v3DEdt.edt, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
-        self._edtParams.append(v3DEdt) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
+        v3DEdt.edt.setEnabled(enable)
+        if enable: # This is a GUI that can be potentially controled.
+            self._edtParams.append(v3DEdt) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
     def _createChkBoxParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DChkBox = Vision3DCheckBox(param, self)
+        self.v3DChkBox = Vision3DCheckBox(param, self)
         val = self._args[param]
-        v3DChkBox.chkBox.setCheckState(val)
-        v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
+        self.v3DChkBox.chkBox.setCheckState(val)
+        self.v3DChkBox.chkBox.toggled.connect(self.v3DChkBox.onParameterChanged)
         grdLay = QGridLayout()
         grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(v3DChkBox.chkBox, 0, 1)
+        grdLay.addWidget(self.v3DChkBox.chkBox, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
-        self._chkParams.append(v3DChkBox) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DRdoBtn = Vision3DRadioButton(param, self)
-        v3DRdoBtn.rdoBoxRaw.setChecked(True)
-        v3DRdoBtn.rdoBoxUnd.setChecked(False)
-        v3DRdoBtn.rdoBoxStr.setChecked(False)
-        v3DRdoBtn.rdoBoxRaw.toggled.connect(v3DRdoBtn.onParameterChanged)
-        v3DRdoBtn.rdoBoxUnd.toggled.connect(v3DRdoBtn.onParameterChanged)
-        v3DRdoBtn.rdoBoxStr.toggled.connect(v3DRdoBtn.onParameterChanged)
+        self.v3DRdoBtn = Vision3DRadioButton(param, self)
+        self.v3DRdoBtn.rdoBoxRaw.setChecked(True)
+        self.v3DRdoBtn.rdoBoxUnd.setChecked(False)
+        self.v3DRdoBtn.rdoBoxStr.setChecked(False)
+        self.v3DRdoBtn.rdoBoxRaw.toggled.connect(self.v3DRdoBtn.onParameterChanged)
+        self.v3DRdoBtn.rdoBoxUnd.toggled.connect(self.v3DRdoBtn.onParameterChanged)
+        self.v3DRdoBtn.rdoBoxStr.toggled.connect(self.v3DRdoBtn.onParameterChanged)
         grdLay = QGridLayout()
         grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(v3DRdoBtn.rdoBoxRaw, 0, 1)
-        grdLay.addWidget(v3DRdoBtn.rdoBoxUnd, 0, 2)
-        grdLay.addWidget(v3DRdoBtn.rdoBoxStr, 0, 3)
+        grdLay.addWidget(self.v3DRdoBtn.rdoBoxRaw, 0, 1)
+        grdLay.addWidget(self.v3DRdoBtn.rdoBoxUnd, 0, 2)
+        grdLay.addWidget(self.v3DRdoBtn.rdoBoxStr, 0, 3)
         grpBoxLay.addLayout(grdLay, row, col, 1, 2)
-        self._rdoParams.append(v3DRdoBtn) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
-    def _resizeImages(self):
-        # Resize images.
+    def _getFrameSize(self):
+        # Get frame size.
+        displayHeight, displayWidth = 0, 0
         if self._args['hardware'] == 'arm-jetson':
-            displayWidth = self._args['videoDspWidth']
             displayHeight = self._args['videoDspHeight']
+            displayWidth = self._args['videoDspWidth']
         else:
-            displayWidth = self._args['videoCapWidth']
             displayHeight = self._args['videoCapHeight']
+            displayWidth = self._args['videoCapWidth']
+        return displayHeight, displayWidth
+
+    def _resizeFrames(self):
+        # Resize images.
+        displayHeight, displayWidth = self._getFrameSize()
         self.imgLblLeft.resize(displayWidth, displayHeight)
         self.imgLblRight.resize(displayWidth, displayHeight)
 
@@ -190,14 +201,12 @@ class Vision3D(QWidget):
         self._threadRight.stop()
         for v3DEdt in self._edtParams:
             v3DEdt.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
-        for v3DChkBox in self._chkParams:
-            v3DChkBox.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
-        for v3DRdoBtn in self._rdoParams:
-            v3DRdoBtn.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
+        self.v3DChkBox.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
+        self.v3DRdoBtn.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
     @pyqtSlot(np.ndarray, QLabel, int, QLabel)
-    def updateImage(self, frame, imgLbl, fps, txtLbl):
+    def updateFrame(self, frame, imgLbl, fps, txtLbl):
         # Update thread image.
         qtImg = self.convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
@@ -214,6 +223,37 @@ class Vision3D(QWidget):
         bytesPerLine = channel * displayWidth
         qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
         return QPixmap.fromImage(qtImg)
+
+    @pyqtSlot(int)
+    def calibrationDone(self, vidID):
+        # Update calibrated thread status.
+        self.lock.acquire()
+        self.calibratedThreads += vidID
+        self.lock.release()
+
+        # Re-enable radio buttons when both threads are calibrated.
+        if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
+            self.calibratedThreads = 0
+            self.v3DRdoBtn.rdoBoxRaw.setEnabled(True)
+            self.v3DRdoBtn.rdoBoxUnd.setEnabled(True)
+            self.v3DRdoBtn.rdoBoxStr.setEnabled(True)
+            for v3DEdt in self._edtParams:
+                v3DEdt.edt.setEnabled(True)
+
+    def disableCalibration(self):
+        # Disable access to calibration parameters to prevent thread overflow.
+        self.v3DRdoBtn.rdoBoxRaw.setEnabled(False)
+        self.v3DRdoBtn.rdoBoxUnd.setEnabled(False)
+        self.v3DRdoBtn.rdoBoxStr.setEnabled(False)
+        for v3DEdt in self._edtParams:
+            v3DEdt.edt.setEnabled(False)
+
+        # Black out frames.
+        displayHeight, displayWidth = self._getFrameSize()
+        shape = (displayHeight, displayWidth)
+        frame = np.ones(shape, np.uint8) # Black image.
+        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
+        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
 
 def cmdLineArgs():
     # Create parser.

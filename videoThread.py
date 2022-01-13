@@ -15,6 +15,7 @@ import time
 class VideoThread(QThread):
     # Signals enabling to update application from thread.
     changePixmapSignal = pyqtSignal(np.ndarray, QLabel, int, QLabel)
+    calibrationDoneSignal = pyqtSignal(int)
 
     def __init__(self, vidID, args, imgLbl, txtLbl, vision3D):
         # Initialise.
@@ -27,6 +28,7 @@ class VideoThread(QThread):
         vision3D.changeParamSignal.connect(self.onParameterChanged)
         self._run = True
         self._vid = VideoStream(self._args)
+        self.vidID = vidID
 
         # Get camera calibration parameters from target camera.
         self._cal = {}
@@ -213,11 +215,6 @@ class VideoThread(QThread):
         return fps
 
     def _runCalibration(self):
-        # Reset application image.
-        shape = (self._vid.height, self._vid.width)
-        frame = np.ones(shape, np.uint8) # Black image.
-        self.changePixmapSignal.emit(frame, self._imgLbl, 0, self._txtLbl)
-
         # Apply change only before new  calibration.
         param, newValue = self._needCalibration
         self._args[param] = newValue
@@ -231,3 +228,4 @@ class VideoThread(QThread):
             msg += ', calib time %.6f s'%(stop - start)
             logging.debug(msg)
         self._needCalibration = False
+        self.calibrationDoneSignal.emit(self._args['videoID'])
