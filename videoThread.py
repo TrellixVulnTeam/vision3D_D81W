@@ -81,6 +81,8 @@ class VideoThread(QThread):
             return # Nothing to do.
 
         # Impact is needed.
+        # Keep track of what must be done in order to handle it in main thread (run).
+        # Do NOT run job here (too many callbacks may overflow the main thread).
         if param == 'mode' or param == 'alpha':
             self._needCalibration = (param, newValue)
         elif param == 'ROI':
