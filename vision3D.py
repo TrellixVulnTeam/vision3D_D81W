@@ -78,11 +78,13 @@ class Vision3D(QWidget):
         self._args = args.copy()
         self._args['alpha'] = 0.
         self._args['ROI'] = False
+        self._args['DBG'] = False
         self._args['mode'] = 'raw'
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
         self._edtParams = []
+        self._chkParams = []
         self._createEditParameters(grpBoxLay, 'videoCapWidth', 0, 1)
         self._createEditParameters(grpBoxLay, 'videoCapHeight', 0, 2)
         self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 0, 3)
@@ -93,6 +95,7 @@ class Vision3D(QWidget):
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 4)
         self._createEditParameters(grpBoxLay, 'alpha', 1, 4, enable=True, objType='double')
         self._createChkBoxParameters(grpBoxLay, 'ROI', 1, 5)
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 2, 5)
 
         # Create widgets.
         self.imgLblLeft = QLabel(self)
@@ -152,14 +155,15 @@ class Vision3D(QWidget):
     def _createChkBoxParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        self.v3DChkBox = Vision3DCheckBox(param, self)
+        v3DChkBox = Vision3DCheckBox(param, self)
         val = self._args[param]
-        self.v3DChkBox.chkBox.setCheckState(val)
-        self.v3DChkBox.chkBox.toggled.connect(self.v3DChkBox.onParameterChanged)
+        v3DChkBox.chkBox.setCheckState(val)
+        v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
         grdLay = QGridLayout()
         grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(self.v3DChkBox.chkBox, 0, 1)
+        grdLay.addWidget(v3DChkBox.chkBox, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
+        self._chkParams.append(v3DChkBox) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
@@ -201,7 +205,8 @@ class Vision3D(QWidget):
         self._threadRight.stop()
         for v3DEdt in self._edtParams:
             v3DEdt.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
-        self.v3DChkBox.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
+        for v3DChkBox in self._chkParams:
+            v3DChkBox.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         self.v3DRdoBtn.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
@@ -281,7 +286,6 @@ def cmdLineArgs():
                         help='define display width')
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
-    parser.add_argument('--debug', dest='debug', action='store_true')
     args = parser.parse_args()
 
     return args

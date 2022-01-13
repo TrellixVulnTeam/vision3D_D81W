@@ -9,8 +9,10 @@ import os
 import h5py
 import cv2
 import numpy as np
-import logging
 import time
+import logging
+
+logger = logging.getLogger()
 
 class VideoThread(QThread):
     # Signals enabling to update application from thread.
@@ -61,9 +63,8 @@ class VideoThread(QThread):
             fdh.close()
         assert len(self._stereo.keys()) > 0, 'camera %d is not calibrated.'%vidIDStr
 
-        # Set up debug logging on demand.
-        if self._args['debug']:
-            logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.DEBUG)
+        # Set up info/debug log on demand.
+        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
     @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
@@ -85,10 +86,16 @@ class VideoThread(QThread):
         # Impact is needed.
         # Keep track of what must be done in order to handle it in main thread (run).
         # Do NOT run job here (too many callbacks may overflow the main thread).
-        if param == 'mode' or param == 'alpha':
+        if param == 'mode' or param == 'alpha': # Parameters with high impact (time).
             self._needCalibration = (param, newValue)
-        elif param == 'ROI':
+        else: # Parameters which with no impact (immediate).
             self._args[param] = newValue
+
+        # Update logger level.
+        if self._args['DBG']:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
 
     def _calibrate(self):
         # Check if calibration is needed:
@@ -165,8 +172,13 @@ class VideoThread(QThread):
         # Run thread.
         while self._run and self._vid.isOpened():
             # Debug on demand.
-            if self._args['debug']:
-                self._logging(fps)
+            if self._args['DBG']:
+                msg = 'stream%02d-run'%self._args['videoID']
+                msg += ', FPS %02d'%fps
+                msg += ', mode %s'%self._args['mode']
+                msg += ', alpha %.3f'%self._args['alpha']
+                msg += ', ROI %s'%self._args['ROI']
+                logger.debug(msg)
 
             # Take actions.
             if self._needCalibration:
@@ -179,15 +191,6 @@ class VideoThread(QThread):
         # Stop thread.
         self._run = False
         self.wait()
-
-    def _logging(self, fps):
-        # Log current informations.
-        msg = 'stream%d'%self._args['videoID']
-        msg += ', FPS %02d'%fps
-        msg += ', mode %s'%self._args['mode']
-        msg += ', alpha %.3f'%self._args['alpha']
-        msg += ', ROI %s'%self._args['ROI']
-        logging.debug(msg)
 
     def _runCapture(self, mtx, dist):
         # Get frame and process it.
@@ -223,9 +226,10 @@ class VideoThread(QThread):
         start = time.time()
         self._calibrate()
         stop = time.time()
-        if self._args['debug']:
-            msg = 'stream%d'%self._args['videoID']
-            msg += ', calib time %.6f s'%(stop - start)
-            logging.debug(msg)
+        msg = 'stream%02d-cal'%self._args['videoID']
+        msg += ', alpha %.3f s'%self._args['alpha']
+        msg += ', mode %s'%self._args['mode']
+        msg += ', time %.6f s'%(stop - start)
+        logger.info(msg)
         self._needCalibration = False
         self.calibrationDoneSignal.emit(self._args['videoID'])
