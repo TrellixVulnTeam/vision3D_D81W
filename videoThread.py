@@ -43,6 +43,9 @@ class VideoThread(QThread):
             fdh.close()
         assert len(self._cal.keys()) > 0, 'camera %d is not calibrated.'%vidID
 
+        # Set up info/debug log on demand.
+        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
+
         # Get camera calibration parameters from the other camera (for stereo).
         self._stereo, vidIDStr = {}, None
         if self._args['videoIDLeft'] == vidID:
@@ -62,9 +65,9 @@ class VideoThread(QThread):
                 self._stereo[key] = fdh[key][...]
             fdh.close()
         assert len(self._stereo.keys()) > 0, 'camera %d is not calibrated.'%vidIDStr
-
-        # Set up info/debug log on demand.
-        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
+        msg = 'stream%02d-ini'%self._args['videoID']
+        msg += ', stereo %s-%02d (with %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
+        logger.info(msg)
 
     @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
