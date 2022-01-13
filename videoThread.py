@@ -91,6 +91,7 @@ class VideoThread(QThread):
     def _calibrate(self):
         # Check if calibration is needed:
         if self._args['mode'] == 'raw':
+            self._args['roiCam'] = False # ROI has no meaning here.
             return # Nothing to do.
 
         # Calibrate each camera individually based on free scaling parameter.
@@ -201,7 +202,7 @@ class VideoThread(QThread):
                 frame = strFrame # Replace frame with stereo frame.
 
             # Show only ROI on demand.
-            if self._args['ROI']:
+            if self._args['ROI'] and self._args['roiCam']:
                 x, y, width, height = self._args['roiCam']
                 roiFrame = np.ones(frame.shape, np.uint8) # Black image.
                 roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
