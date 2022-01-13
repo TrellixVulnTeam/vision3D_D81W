@@ -13,14 +13,14 @@ import cv2
 import numpy as np
 import threading
 
-class Vision3DEdit(QLineEdit):
-    def __init__(self, param, objType, vision3D):
+class Vision3DEdit(QWidget):
+    def __init__(self, param, objType, parent=None):
         # Initialise.
-        super().__init__()
+        super().__init__(parent)
         self.edt = QLineEdit()
-        self._param = param # Track parameter associated to QLineEdit.
+        self._param = param # Track associated parameter.
         self._objType = objType
-        self._vision3D = vision3D
+        self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
@@ -29,31 +29,31 @@ class Vision3DEdit(QLineEdit):
         if self.edt.isEnabled():
             self._vision3D.disableCalibration()
 
-class Vision3DCheckBox(QCheckBox):
-    def __init__(self, param, vision3D):
+class Vision3DCheckBox(QWidget):
+    def __init__(self, param, parent=None):
         # Initialise.
-        super().__init__()
+        super().__init__(parent)
         self.chkBox = QCheckBox()
-        self._param = param # Track parameter associated to QLineEdit.
-        self._vision3D = vision3D
+        self._param = param # Track associated parameter.
+        self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
         value = self.chkBox.isChecked() # State which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
-class Vision3DRadioButton(QRadioButton):
-    def __init__(self, param, vision3D):
+class Vision3DRadioButton(QWidget):
+    def __init__(self, param, parent=None):
         # Initialise.
-        super().__init__()
+        super().__init__(parent)
         self.rdoBoxRaw = QRadioButton('raw')
         self.rdoBoxRaw.mode = 'raw'
         self.rdoBoxUnd = QRadioButton('undistort')
         self.rdoBoxUnd.mode = 'und'
         self.rdoBoxStr = QRadioButton('stereo')
         self.rdoBoxStr.mode = 'str'
-        self._param = param # Track parameter associated to QLineEdit.
-        self._vision3D = vision3D
+        self._param = param # Track associated parameter.
+        self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
@@ -83,8 +83,7 @@ class Vision3D(QWidget):
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
-        self._edtParams = []
-        self._chkParams = []
+        self._edtCtrParams = [] # Edits with controls.
         self._createEditParameters(grpBoxLay, 'videoCapWidth', 0, 1)
         self._createEditParameters(grpBoxLay, 'videoCapHeight', 0, 2)
         self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 0, 3)
@@ -98,9 +97,9 @@ class Vision3D(QWidget):
         self._createChkBoxParameters(grpBoxLay, 'DBG', 2, 5)
 
         # Create widgets.
-        self.imgLblLeft = QLabel(self)
+        self.imgLblLeft = QLabel()
         self.txtLblLeft = QLabel('Left')
-        self.imgLblRight = QLabel(self)
+        self.imgLblRight = QLabel()
         self.txtLblRight = QLabel('Right')
         self._resizeFrames()
 
@@ -136,7 +135,7 @@ class Vision3D(QWidget):
     def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int'):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DEdt = Vision3DEdit(param, objType, self)
+        v3DEdt = Vision3DEdit(param, objType, parent=self)
         if objType == 'int':
             v3DEdt.edt.setValidator(QIntValidator())
         elif objType == 'double':
@@ -149,13 +148,13 @@ class Vision3D(QWidget):
         grdLay.addWidget(v3DEdt.edt, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
         v3DEdt.edt.setEnabled(enable)
-        if enable: # This is a GUI that can be potentially controled.
-            self._edtParams.append(v3DEdt) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
+        if enable:
+            self._edtCtrParams.append(v3DEdt)
 
     def _createChkBoxParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DChkBox = Vision3DCheckBox(param, self)
+        v3DChkBox = Vision3DCheckBox(param, parent=self)
         val = self._args[param]
         v3DChkBox.chkBox.setCheckState(val)
         v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
@@ -163,12 +162,11 @@ class Vision3D(QWidget):
         grdLay.addWidget(lbl, 0, 0)
         grdLay.addWidget(v3DChkBox.chkBox, 0, 1)
         grpBoxLay.addLayout(grdLay, row, col)
-        self._chkParams.append(v3DChkBox) # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        self.v3DRdoBtn = Vision3DRadioButton(param, self)
+        self.v3DRdoBtn = Vision3DRadioButton(param, parent=self)
         self.v3DRdoBtn.rdoBoxRaw.setChecked(True)
         self.v3DRdoBtn.rdoBoxUnd.setChecked(False)
         self.v3DRdoBtn.rdoBoxStr.setChecked(False)
@@ -203,10 +201,6 @@ class Vision3D(QWidget):
         # Close application.
         self._threadLeft.stop()
         self._threadRight.stop()
-        for v3DEdt in self._edtParams:
-            v3DEdt.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
-        for v3DChkBox in self._chkParams:
-            v3DChkBox.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         self.v3DRdoBtn.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
@@ -242,7 +236,7 @@ class Vision3D(QWidget):
             self.v3DRdoBtn.rdoBoxRaw.setEnabled(True)
             self.v3DRdoBtn.rdoBoxUnd.setEnabled(True)
             self.v3DRdoBtn.rdoBoxStr.setEnabled(True)
-            for v3DEdt in self._edtParams:
+            for v3DEdt in self._edtCtrParams:
                 v3DEdt.edt.setEnabled(True)
 
     def disableCalibration(self):
@@ -250,7 +244,7 @@ class Vision3D(QWidget):
         self.v3DRdoBtn.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtn.rdoBoxUnd.setEnabled(False)
         self.v3DRdoBtn.rdoBoxStr.setEnabled(False)
-        for v3DEdt in self._edtParams:
+        for v3DEdt in self._edtCtrParams:
             v3DEdt.edt.setEnabled(False)
 
         # Black out frames.
