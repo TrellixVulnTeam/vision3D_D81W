@@ -77,6 +77,7 @@ class Vision3D(QWidget):
         # Create parameters.
         self._args = args.copy()
         self._args['alpha-und'] = 0.
+        self._args['alpha-str'] = 0.
         self._args['ROI'] = False
         self._args['DBG'] = False
         self._args['mode'] = 'raw'
@@ -92,11 +93,20 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 6)
-        tooltip = 'Free scaling parameter between 0 (when all the pixels in the undistorted'
-        tooltip += ' image are valid) and 1 (when all the source image pixels are retained'
-        tooltip += ' in the undistorted image). If negative, no use of free scaling.'
+        tooltip = 'Free scaling parameter between 0 (when all the pixels in the undistorted\n'
+        tooltip += 'image are valid) and 1 (when all the source image pixels are retained\n'
+        tooltip += 'in the undistorted image). Any intermediate value yields an intermediate\n'
+        tooltip += 'result between those two extreme cases. If negative, the function performs\n'
+        tooltip += 'the default scaling.'
         self._createEditParameters(grpBoxLay, 'alpha-und', 2, 7, enable=True, objType='double', tooltip=tooltip)
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 8)
+        tooltip = 'Free scaling parameter between 0 (rectified images are zoomed and shifted so\n'
+        tooltip += 'that only valid pixels are visible: no black areas after rectification) and\n'
+        tooltip += '1 (rectified image is decimated and shifted so that all the pixels from the\n'
+        tooltip += 'original images from the cameras are retained in the rectified images: no source\n'
+        tooltip += 'image pixels are lost). Any intermediate value yields an intermediate result between\n'
+        tooltip += 'those two extreme cases. If negative, the function performs the default scaling.'
+        self._createEditParameters(grpBoxLay, 'alpha-str', 3, 7, enable=True, objType='double', tooltip=tooltip)
+        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 8, 2, 2)
         self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 8)
 
         # Create widgets.
@@ -150,19 +160,19 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(v3DEdt.edt, row, 2*col+1)
         v3DEdt.edt.setEnabled(enable)
         if enable:
-            self._edtCtrParams.append(v3DEdt)
+            self._edtCtrParams.append(v3DEdt) # Enabled edits have controls.
         if tooltip:
             lbl.setToolTip(tooltip)
 
-    def _createChkBoxParameters(self, grpBoxLay, param, row, col):
+    def _createChkBoxParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1):
         # Create one parameter.
         lbl = QLabel(param)
         v3DChkBox = Vision3DCheckBox(param, parent=self)
         val = self._args[param]
         v3DChkBox.chkBox.setCheckState(val)
         v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
-        grpBoxLay.addWidget(lbl, row, 2*col+0)
-        grpBoxLay.addWidget(v3DChkBox.chkBox, row, 2*col+1)
+        grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
+        grpBoxLay.addWidget(v3DChkBox.chkBox, row, 2*col+1, rowSpan, colSpan)
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.

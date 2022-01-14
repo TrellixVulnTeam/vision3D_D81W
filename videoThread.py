@@ -162,11 +162,13 @@ class VideoThread(QThread):
                                                                                                 flags=flags)
 
         # Stereo rectification.
-        alpha = 1 # Rectified image is decimated and shifted so that no source image pixels are lost.
+        alphaStr = -1 # Default scaling.
+        if self._args['alpha-str'] >= 0.:
+            alphaStr = self._args['alpha-str']
         rectL, rectR, prjMtxL, prjMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
                                                                                    newCamMtxR, distR,
                                                                                    shape, rot, trans,
-                                                                                   alpha=alpha,
+                                                                                   alpha=alphaStr,
                                                                                    newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
@@ -189,6 +191,7 @@ class VideoThread(QThread):
                 msg += ', FPS %02d'%fps
                 msg += ', mode %s'%self._args['mode']
                 msg += ', alpha-und %.3f'%self._args['alpha-und']
+                msg += ', alpha-str %.3f'%self._args['alpha-str']
                 msg += ', ROI %s'%self._args['ROI']
                 logger.debug(msg)
 
@@ -240,8 +243,9 @@ class VideoThread(QThread):
         self._calibrate()
         stop = time.time()
         msg = 'stream%02d-cal'%self._args['videoID']
-        msg += ', alpha-und %.3f s'%self._args['alpha-und']
         msg += ', mode %s'%self._args['mode']
+        msg += ', alpha-und %.3f s'%self._args['alpha-und']
+        msg += ', alpha-str %.3f s'%self._args['alpha-str']
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False
