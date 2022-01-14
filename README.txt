@@ -85,7 +85,8 @@ Friendlyarm: rockchip
   ~/Programs/opencv/build> cmake -DCMAKE_BUILD_TYPE=Release -DOPENCV_EXTRA_MODULES_PATH=~/Programs/opencv_contrib/modules \
                                  -DBUILD_opencv_python3=ON -DCMAKE_INSTALL_PREFIX:PATH=~/Programs/opencv/local \
                                  -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_GSTREAMER=ON \
-                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3 ..
+                                 -DOPENCV_DNN_OPENCL=ON \
+                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3,dnn ..
   ~/Programs/opencv/build> make -j 2
   ~/Programs/opencv/build> make install
   ~/Programs/opencv/build> sudo ldconfig
