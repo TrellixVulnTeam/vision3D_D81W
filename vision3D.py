@@ -84,20 +84,20 @@ class Vision3D(QWidget):
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
         self._edtCtrParams = [] # Edits with controls.
-        self._createEditParameters(grpBoxLay, 'videoCapWidth', 0, 1)
-        self._createEditParameters(grpBoxLay, 'videoCapHeight', 0, 2)
-        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 0, 3)
+        self._createEditParameters(grpBoxLay, 'videoCapWidth', 1, 0)
+        self._createEditParameters(grpBoxLay, 'videoCapHeight', 1, 1)
+        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 2)
         if self._args['hardware'] == 'arm-jetson':
-            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 1, 1)
-            self._createEditParameters(grpBoxLay, 'videoDspWidth', 1, 2)
-            self._createEditParameters(grpBoxLay, 'videoDspHeight', 1, 3)
-        self._createRdoButParameters(grpBoxLay, 'mode', 0, 4)
+            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 2, 0)
+            self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
+            self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
+        self._createRdoButParameters(grpBoxLay, 'mode', 0, 6)
         tooltip = 'Free scaling parameter between 0 (when all the pixels in the undistorted'
         tooltip += ' image are valid) and 1 (when all the source image pixels are retained'
         tooltip += ' in the undistorted image). If negative, no use of free scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha-und', 1, 4, enable=True, objType='double', tooltip=tooltip)
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 1, 5)
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 2, 5)
+        self._createEditParameters(grpBoxLay, 'alpha-und', 2, 7, enable=True, objType='double', tooltip=tooltip)
+        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 8)
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 8)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
@@ -146,10 +146,8 @@ class Vision3D(QWidget):
         val = self._args[param]
         v3DEdt.edt.setText(str(val))
         v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
-        grdLay = QGridLayout()
-        grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(v3DEdt.edt, 0, 1)
-        grpBoxLay.addLayout(grdLay, row, col)
+        grpBoxLay.addWidget(lbl, row, 2*col+0)
+        grpBoxLay.addWidget(v3DEdt.edt, row, 2*col+1)
         v3DEdt.edt.setEnabled(enable)
         if enable:
             self._edtCtrParams.append(v3DEdt)
@@ -163,10 +161,8 @@ class Vision3D(QWidget):
         val = self._args[param]
         v3DChkBox.chkBox.setCheckState(val)
         v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
-        grdLay = QGridLayout()
-        grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(v3DChkBox.chkBox, 0, 1)
-        grpBoxLay.addLayout(grdLay, row, col)
+        grpBoxLay.addWidget(lbl, row, 2*col+0)
+        grpBoxLay.addWidget(v3DChkBox.chkBox, row, 2*col+1)
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
@@ -178,12 +174,10 @@ class Vision3D(QWidget):
         self.v3DRdoBtn.rdoBoxRaw.toggled.connect(self.v3DRdoBtn.onParameterChanged)
         self.v3DRdoBtn.rdoBoxUnd.toggled.connect(self.v3DRdoBtn.onParameterChanged)
         self.v3DRdoBtn.rdoBoxStr.toggled.connect(self.v3DRdoBtn.onParameterChanged)
-        grdLay = QGridLayout()
-        grdLay.addWidget(lbl, 0, 0)
-        grdLay.addWidget(self.v3DRdoBtn.rdoBoxRaw, 0, 1)
-        grdLay.addWidget(self.v3DRdoBtn.rdoBoxUnd, 0, 2)
-        grdLay.addWidget(self.v3DRdoBtn.rdoBoxStr, 0, 3)
-        grpBoxLay.addLayout(grdLay, row, col, 1, 2)
+        grpBoxLay.addWidget(lbl, row+0, col)
+        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxRaw, row+1, col)
+        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxUnd, row+2, col)
+        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxStr, row+3, col)
 
     def _getFrameSize(self):
         # Get frame size.
