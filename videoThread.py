@@ -89,7 +89,7 @@ class VideoThread(QThread):
         # Impact is needed.
         # Keep track of what must be done in order to handle it in main thread (run).
         # Do NOT run job here (too many callbacks may overflow the main thread).
-        if param == 'mode' or param == 'alpha': # Parameters with high impact (time).
+        if param == 'mode' or 'alpha' in param: # Parameters with high impact (time).
             self._needCalibration = (param, newValue)
         else: # Parameters which with no impact (immediate).
             self._args[param] = newValue
@@ -108,10 +108,12 @@ class VideoThread(QThread):
 
         # Calibrate each camera individually based on free scaling parameter.
         mtx, dist = self._cal['mtx'], self._cal['dist']
-        alpha = self._args['alpha']
-        height, width = self._cal['shape']
-        shape = (width, height)
-        newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+        newCamMtx, roiCam = mtx, False
+        alphaUnd = self._args['alpha-und']
+        if alphaUnd >= 0.:
+            height, width = self._cal['shape']
+            shape = (width, height)
+            newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alphaUnd, shape)
         self._args['newCamMtx'] = newCamMtx
         self._args['roiCam'] = roiCam
 
@@ -120,9 +122,11 @@ class VideoThread(QThread):
             return # We are done, no need for stereo.
 
         mtxStr, distStr = self._stereo['mtx'], self._stereo['dist']
-        heightStr, widthStr = self._stereo['shape']
-        shapeStr = (widthStr, heightStr)
-        newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
+        newCamMtxStr, roiCamStr = mtxStr, False
+        if alphaUnd >= 0.:
+            heightStr, widthStr = self._stereo['shape']
+            shapeStr = (widthStr, heightStr)
+            newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alphaUnd, shapeStr)
 
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
@@ -153,19 +157,24 @@ class VideoThread(QThread):
         ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
                                                                                                 newCamMtxL, distL,
                                                                                                 newCamMtxR, distR,
-                                                                                                shape, criteria, flags)
+                                                                                                shape,
+                                                                                                criteria=criteria,
+                                                                                                flags=flags)
 
         # Stereo rectification.
-        rectScale = 1
-        rectL, rectR, prjMtxL, prjMtxR, matQ, roiL, roiR= cv2.stereoRectify(newCamMtxL, distL, newCamMtxR, distR,
-                                                                            shape, rot, trans, rectScale, (0,0))
+        alpha = 1 # Rectified image is decimated and shifted so that no source image pixels are lost.
+        rectL, rectR, prjMtxL, prjMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
+                                                                                   newCamMtxR, distR,
+                                                                                   shape, rot, trans,
+                                                                                   alpha=alpha,
+                                                                                   newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
             stereoMap = cv2.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjMtxL, shapeL, cv2.CV_16SC2)
-            self._args['roiCam'] = roiL
+            self._args['roiCam'] = roiCamL
         else:
             stereoMap = cv2.initUndistortRectifyMap(newCamMtxR, distR, rectR, prjMtxR, shapeR, cv2.CV_16SC2)
-            self._args['roiCam'] = roiR
+            self._args['roiCam'] = roiCamR
         self._args['stereoMap'] = stereoMap
 
     def run(self):
@@ -179,7 +188,7 @@ class VideoThread(QThread):
                 msg = 'stream%02d-run'%self._args['videoID']
                 msg += ', FPS %02d'%fps
                 msg += ', mode %s'%self._args['mode']
-                msg += ', alpha %.3f'%self._args['alpha']
+                msg += ', alpha-und %.3f'%self._args['alpha-und']
                 msg += ', ROI %s'%self._args['ROI']
                 logger.debug(msg)
 
@@ -206,7 +215,8 @@ class VideoThread(QThread):
                 frame = undFrame # Replace frame with undistorted frame.
             elif self._args['mode'] == 'str':
                 stereoMap = self._args['stereoMap']
-                strFrame = cv2.remap(frame, stereoMap[0], stereoMap[1], cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+                stereoMapX, stereoMapY = stereoMap[0], stereoMap[1]
+                strFrame = cv2.remap(frame, stereoMapX, stereoMapY, cv2.INTER_LINEAR)
                 frame = strFrame # Replace frame with stereo frame.
 
             # Show only ROI on demand.
@@ -230,7 +240,7 @@ class VideoThread(QThread):
         self._calibrate()
         stop = time.time()
         msg = 'stream%02d-cal'%self._args['videoID']
-        msg += ', alpha %.3f s'%self._args['alpha']
+        msg += ', alpha-und %.3f s'%self._args['alpha-und']
         msg += ', mode %s'%self._args['mode']
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)

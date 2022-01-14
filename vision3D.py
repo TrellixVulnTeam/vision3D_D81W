@@ -76,7 +76,7 @@ class Vision3D(QWidget):
 
         # Create parameters.
         self._args = args.copy()
-        self._args['alpha'] = 0.
+        self._args['alpha-und'] = 0.
         self._args['ROI'] = False
         self._args['DBG'] = False
         self._args['mode'] = 'raw'
@@ -92,7 +92,10 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoDspWidth', 1, 2)
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 1, 3)
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 4)
-        self._createEditParameters(grpBoxLay, 'alpha', 1, 4, enable=True, objType='double')
+        tooltip = 'Free scaling parameter between 0 (when all the pixels in the undistorted'
+        tooltip += ' image are valid) and 1 (when all the source image pixels are retained'
+        tooltip += ' in the undistorted image). If negative, no use of free scaling.'
+        self._createEditParameters(grpBoxLay, 'alpha-und', 1, 4, enable=True, objType='double', tooltip=tooltip)
         self._createChkBoxParameters(grpBoxLay, 'ROI', 1, 5)
         self._createChkBoxParameters(grpBoxLay, 'DBG', 2, 5)
 
@@ -132,7 +135,7 @@ class Vision3D(QWidget):
         self._threadRight.calibrationDoneSignal.connect(self.calibrationDone)
         self._threadRight.start()
 
-    def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int'):
+    def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int', tooltip=None):
         # Create one parameter.
         lbl = QLabel(param)
         v3DEdt = Vision3DEdit(param, objType, parent=self)
@@ -150,6 +153,8 @@ class Vision3D(QWidget):
         v3DEdt.edt.setEnabled(enable)
         if enable:
             self._edtCtrParams.append(v3DEdt)
+        if tooltip:
+            lbl.setToolTip(tooltip)
 
     def _createChkBoxParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
