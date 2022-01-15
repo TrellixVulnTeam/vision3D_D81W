@@ -111,8 +111,7 @@ class VideoThread(QThread):
         newCamMtx, roiCam = mtx, False
         alpha = self._args['alpha']
         if alpha >= 0.:
-            height, width = self._cal['shape']
-            shape = (width, height)
+            shape = self._cal['shape']
             newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
         self._args['newCamMtx'] = newCamMtx
         self._args['roiCam'] = roiCam
@@ -126,8 +125,7 @@ class VideoThread(QThread):
         newCamMtxStr, roiCamStr = mtxStr, False
         alpha = self._args['alpha']
         if alpha >= 0.:
-            heightStr, widthStr = self._stereo['shape']
-            shapeStr = (widthStr, heightStr)
+            shapeStr = self._stereo['shape']
             newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
 
         # Get left/right sides.
@@ -139,27 +137,23 @@ class VideoThread(QThread):
             mtxL = mtx
             newCamMtxL = newCamMtx
             distL = dist
-            heightL, widthL = self._cal['shape']
-            shapeL = (widthL, heightL)
+            shapeL = self._cal['shape']
             imgR = self._stereo['img']
             mtxR = mtxStr
             newCamMtxR = newCamMtxStr
             distR = distStr
-            heightR, widthR = self._stereo['shape']
-            shapeR = (widthR, heightR)
+            shapeR = self._stereo['shape']
         else:
             imgR = self._cal['img']
             mtxR = mtx
             newCamMtxR = newCamMtx
             distR = dist
-            heightR, widthR = self._cal['shape']
-            shapeR = (widthR, heightR)
+            shapeR = self._cal['shape']
             imgL = self._stereo['img']
             mtxL = mtxStr
             newCamMtxL = newCamMtxStr
             distL = distStr
-            heightL, widthL = self._stereo['shape']
-            shapeL = (widthL, heightL)
+            shapeL = self._stereo['shape']
 
         # Calibrate.
         assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
@@ -177,8 +171,7 @@ class VideoThread(QThread):
         flags |= cv2.CALIB_FIX_INTRINSIC
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         obj = self._cal['obj']
-        height, width = self._cal['shape']
-        shape = (width, height)
+        shape = self._cal['shape']
         ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
                                                                                                 newCamMtxL, distL,
                                                                                                 newCamMtxR, distR,
@@ -219,8 +212,7 @@ class VideoThread(QThread):
         fMtx, mask = cv2.findFundamentalMat(imgPtsL, imgPtsR)
 
         # Stereo rectification without knowing calibration.
-        height, width = self._cal['shape']
-        shape = (width, height)
+        shape = self._cal['shape']
         ret, matHL, matHR = cv2.stereoRectifyUncalibrated(imgPtsL, imgPtsR, fMtx, shape)
 
         # Compute rotations.

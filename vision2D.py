@@ -63,6 +63,8 @@ def calibrateCamera(args, obj, img, shape):
     fdh.create_dataset('tvecs', data=tvecs)
     fdh.create_dataset('obj', data=obj)
     fdh.create_dataset('img', data=img)
+    height, width = shape # Numpy shapes are height / width.
+    shape = (width, height) # OpenCV shapes are width / height.
     fdh.create_dataset('shape', data=shape)
     fdh.close()
 
@@ -131,7 +133,7 @@ def main():
         if not frameOK:
             continue
         height, width, channel = frame.shape
-        shape = (height, width)
+        shape = (height, width) # Numpy shapes are height / width.
 
         # Display the resulting frame.
         print('  FPS %d'%fps, flush=True)
