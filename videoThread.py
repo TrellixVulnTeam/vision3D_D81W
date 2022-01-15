@@ -209,7 +209,7 @@ class VideoThread(QThread):
             for corner in img:
                 imgPtsR.append(np.array(corner[0]))
         imgPtsR = np.array(imgPtsR)
-        fMtx, mask = cv2.findFundamentalMat(imgPtsL, imgPtsR)
+        fMtx, mask = cv2.findFundamentalMat(imgPtsL, imgPtsR, cv2.FM_RANSAC)
 
         # Stereo rectification without knowing calibration.
         shape = self._cal['shape']
