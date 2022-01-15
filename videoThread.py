@@ -89,7 +89,7 @@ class VideoThread(QThread):
         # Impact is needed.
         # Keep track of what must be done in order to handle it in main thread (run).
         # Do NOT run job here (too many callbacks may overflow the main thread).
-        if param == 'mode' or 'alpha' in param: # Parameters with high impact (time).
+        if param == 'mode' or param == 'CAL' or 'alpha' in param: # Parameters with high impact (time).
             self._needCalibration = (param, newValue)
         else: # Parameters which with no impact (immediate).
             self._args[param] = newValue
@@ -106,7 +106,7 @@ class VideoThread(QThread):
             self._args['roiCam'] = False # ROI has no meaning here.
             return # Nothing to do.
 
-        # Calibrate each camera individually based on free scaling parameter.
+        # Calibrate camera individually based on free scaling parameter.
         mtx, dist = self._cal['mtx'], self._cal['dist']
         newCamMtx, roiCam = mtx, False
         alphaUnd = self._args['alpha-und']
@@ -121,39 +121,59 @@ class VideoThread(QThread):
         if self._args['mode'] == 'und':
             return # We are done, no need for stereo.
 
+        # Calibrate stereo (sister) camera individually based on free scaling parameter.
         mtxStr, distStr = self._stereo['mtx'], self._stereo['dist']
         newCamMtxStr, roiCamStr = mtxStr, False
+        alphaUnd = self._args['alpha-und']
         if alphaUnd >= 0.:
             heightStr, widthStr = self._stereo['shape']
             shapeStr = (widthStr, heightStr)
             newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alphaUnd, shapeStr)
 
+        assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
+        if self._args['CAL']:
+            self._calibrateWithCalibration(mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr)
+        else:
+            self._calibrateWithoutCalibration(mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr)
+
+    def _calibrateWithCalibration(self, mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr):
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
         flags = 0
         flags |= cv2.CALIB_FIX_INTRINSIC
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         obj = self._cal['obj']
-        imgL, imgR, newCamMtxL, newCamMtxR, distL, distR, shapeL, shapeR = None, None, None, None, None, None, None, None
+        imgL, imgR = None, None
+        mtxL, mtxR, newCamMtxL, newCamMtxR, distL, distR = None, None, None, None, None, None
+        shapeL, shapeR = None, None
         if self._cal['side'] == 'left':
             imgL = self._cal['img']
+            mtxL = mtx
             newCamMtxL = newCamMtx
             distL = dist
-            shapeL = self._cal['shape']
+            heightL, widthL = self._cal['shape']
+            shapeL = (widthL, heightL)
             imgR = self._stereo['img']
+            mtxR = mtxStr
             newCamMtxR = newCamMtxStr
             distR = distStr
-            shapeR = self._stereo['shape']
+            heightR, widthR = self._stereo['shape']
+            shapeR = (widthR, heightR)
         else:
             imgR = self._cal['img']
+            mtxR = mtx
             newCamMtxR = newCamMtx
             distR = dist
-            shapeR = self._cal['shape']
+            heightR, widthR = self._cal['shape']
+            shapeR = (widthR, heightR)
             imgL = self._stereo['img']
+            mtxL = mtxStr
             newCamMtxL = newCamMtxStr
             distL = distStr
-            shapeL = self._stereo['shape']
-        shape = self._cal['shape']
+            heightL, widthL = self._stereo['shape']
+            shapeL = (widthL, heightL)
+        height, width = self._cal['shape']
+        shape = (width, height)
         ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
                                                                                                 newCamMtxL, distL,
                                                                                                 newCamMtxR, distR,
@@ -161,22 +181,83 @@ class VideoThread(QThread):
                                                                                                 criteria=criteria,
                                                                                                 flags=flags)
 
-        # Stereo rectification.
+        # Stereo rectification based on calibration.
         alphaStr = -1 # Default scaling.
         if self._args['alpha-str'] >= 0.:
             alphaStr = self._args['alpha-str']
-        rectL, rectR, prjMtxL, prjMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
-                                                                                   newCamMtxR, distR,
-                                                                                   shape, rot, trans,
-                                                                                   alpha=alphaStr,
-                                                                                   newImageSize=shape)
+        rectL, rectR, prjCamMtxL, prjCamMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
+                                                                                         newCamMtxR, distR,
+                                                                                         shape, rot, trans,
+                                                                                         alpha=alphaStr,
+                                                                                         newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
-            stereoMap = cv2.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjMtxL, shapeL, cv2.CV_16SC2)
+            stereoMap = cv2.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjCamMtxL, shapeL, cv2.CV_16SC2)
             self._args['roiCam'] = roiCamL
         else:
-            stereoMap = cv2.initUndistortRectifyMap(newCamMtxR, distR, rectR, prjMtxR, shapeR, cv2.CV_16SC2)
+            stereoMap = cv2.initUndistortRectifyMap(newCamMtxR, distR, rectR, prjCamMtxR, shapeR, cv2.CV_16SC2)
             self._args['roiCam'] = roiCamR
+        self._args['stereoMap'] = stereoMap
+
+    def _calibrateWithoutCalibration(self, mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr):
+        # Compute fundamental matrix without knowing intrinsic parameters of the cameras and their relative positions.
+        imgL, imgR = None, None
+        mtxL, mtxR, newCamMtxL, newCamMtxR, distL, distR = None, None, None, None, None, None
+        shapeL, shapeR = None, None
+        if self._cal['side'] == 'left':
+            imgL = self._cal['img']
+            mtxL = mtx
+            newCamMtxL = newCamMtx
+            distL = dist
+            heightL, widthL = self._cal['shape']
+            shapeL = (widthL, heightL)
+            imgR = self._stereo['img']
+            mtxR = mtxStr
+            newCamMtxR = newCamMtxStr
+            distR = distStr
+            heightR, widthR = self._stereo['shape']
+            shapeR = (widthR, heightR)
+        else:
+            imgR = self._cal['img']
+            mtxR = mtx
+            newCamMtxR = newCamMtx
+            distR = dist
+            heightR, widthR = self._cal['shape']
+            shapeR = (widthR, heightR)
+            imgL = self._stereo['img']
+            mtxL = mtxStr
+            newCamMtxL = newCamMtxStr
+            distL = distStr
+            heightL, widthL = self._stereo['shape']
+            shapeL = (widthL, heightL)
+        imgPtsL = []
+        for img in imgL:
+            for corner in img:
+                imgPtsL.append(np.array(corner[0]))
+        imgPtsL = np.array(imgPtsL)
+        imgPtsR = []
+        for img in imgR:
+            for corner in img:
+                imgPtsR.append(np.array(corner[0]))
+        imgPtsR = np.array(imgPtsR)
+        fMtx, mask = cv2.findFundamentalMat(imgPtsL, imgPtsR)
+
+        # Stereo rectification without knowing calibration.
+        height, width = self._cal['shape']
+        shape = (width, height)
+        ret, matHL, matHR = cv2.stereoRectifyUncalibrated(imgPtsL, imgPtsR, fMtx, shape)
+
+        # Compute rotations.
+        rectL = np.dot(np.dot(np.linalg.inv(mtxL), matHL), mtxL)
+        rectR = np.dot(np.dot(np.linalg.inv(mtxR), matHR), mtxR)
+
+        # Stereo rectification without calibration.
+        stereoMap = None
+        if self._cal['side'] == 'left':
+            stereoMap = cv2.initUndistortRectifyMap(mtxL, distL, rectL, newCamMtxL, shapeL, cv2.CV_16SC2)
+        else:
+            stereoMap = cv2.initUndistortRectifyMap(mtxR, distR, rectR, newCamMtxR, shapeR, cv2.CV_16SC2)
+        self._args['roiCam'] = False # Without calibration, no ROI.
         self._args['stereoMap'] = stereoMap
 
     def run(self):
@@ -192,6 +273,7 @@ class VideoThread(QThread):
                 msg += ', mode %s'%self._args['mode']
                 msg += ', alpha-und %.3f'%self._args['alpha-und']
                 msg += ', alpha-str %.3f'%self._args['alpha-str']
+                msg += ', CAL %s'%self._args['CAL']
                 msg += ', ROI %s'%self._args['ROI']
                 logger.debug(msg)
 
@@ -246,6 +328,7 @@ class VideoThread(QThread):
         msg += ', mode %s'%self._args['mode']
         msg += ', alpha-und %.3f s'%self._args['alpha-und']
         msg += ', alpha-str %.3f s'%self._args['alpha-str']
+        msg += ', CAL %s'%self._args['CAL']
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False

@@ -78,6 +78,7 @@ class Vision3D(QWidget):
         self._args = args.copy()
         self._args['alpha-und'] = 0.
         self._args['alpha-str'] = 0.
+        self._args['CAL'] = False
         self._args['ROI'] = False
         self._args['DBG'] = False
         self._args['mode'] = 'raw'
@@ -98,16 +99,17 @@ class Vision3D(QWidget):
         tooltip += 'in the undistorted image). Any intermediate value yields an intermediate\n'
         tooltip += 'result between those two extreme cases. If negative, the function performs\n'
         tooltip += 'the default scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha-und', 2, 7, enable=True, objType='double', tooltip=tooltip)
+        self._createEditParameters(grpBoxLay, 'alpha-und', 2, 8, enable=True, objType='double', tooltip=tooltip)
         tooltip = 'Free scaling parameter between 0 (rectified images are zoomed and shifted so\n'
         tooltip += 'that only valid pixels are visible: no black areas after rectification) and\n'
         tooltip += '1 (rectified image is decimated and shifted so that all the pixels from the\n'
         tooltip += 'original images from the cameras are retained in the rectified images: no source\n'
         tooltip += 'image pixels are lost). Any intermediate value yields an intermediate result between\n'
         tooltip += 'those two extreme cases. If negative, the function performs the default scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha-str', 3, 7, enable=True, objType='double', tooltip=tooltip)
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 8, 2, 2)
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 8)
+        self._createEditParameters(grpBoxLay, 'alpha-str', 3, 8, enable=True, objType='double', tooltip=tooltip)
+        self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7)
+        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, 2, 2)
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 9)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
