@@ -17,7 +17,7 @@ logger = logging.getLogger()
 class VideoThread(QThread):
     # Signals enabling to update application from thread.
     changePixmapSignal = pyqtSignal(np.ndarray, QLabel, int, QLabel)
-    calibrationDoneSignal = pyqtSignal(int)
+    calibrationDoneSignal = pyqtSignal(int, bool)
 
     def __init__(self, vidID, args, imgLbl, txtLbl, vision3D):
         # Initialise.
@@ -298,4 +298,5 @@ class VideoThread(QThread):
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False
-        self.calibrationDoneSignal.emit(self._args['videoID'])
+        hasROI = False if self._args['roiCam'] is False else True
+        self.calibrationDoneSignal.emit(self._args['videoID'], hasROI)

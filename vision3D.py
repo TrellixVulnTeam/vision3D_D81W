@@ -17,29 +17,29 @@ class Vision3DEdit(QWidget):
     def __init__(self, param, objType, parent=None):
         # Initialise.
         super().__init__(parent)
-        self.edt = QLineEdit()
+        self.gui = QLineEdit()
         self._param = param # Track associated parameter.
         self._objType = objType
         self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
-        value = self.edt.text() # Text which has been modified.
+        value = self.gui.text() # Text which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
-        if self.edt.isEnabled():
+        if self.gui.isEnabled():
             self._vision3D.disableCalibration()
 
 class Vision3DCheckBox(QWidget):
     def __init__(self, param, parent=None):
         # Initialise.
         super().__init__(parent)
-        self.chkBox = QCheckBox()
+        self.gui = QCheckBox()
         self._param = param # Track associated parameter.
         self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
-        value = self.chkBox.isChecked() # State which has been modified.
+        value = self.gui.isChecked() # State which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButton(QWidget):
@@ -84,7 +84,7 @@ class Vision3D(QWidget):
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
-        self._edtCtrParams = [] # Edits with controls.
+        self._guiCtrParams = [] # All GUIs with controls.
         self._createEditParameters(grpBoxLay, 'videoCapWidth', 1, 0)
         self._createEditParameters(grpBoxLay, 'videoCapHeight', 1, 1)
         self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 2)
@@ -103,7 +103,7 @@ class Vision3D(QWidget):
         tooltip += 'If negative, the function performs the default scaling.'
         self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
                                    enable=True, objType='double', tooltip=tooltip)
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 10, rowSpan=2, colSpan=1)
+        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 10, rowSpan=2, colSpan=1)
         self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7)
         self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 10)
 
@@ -149,17 +149,17 @@ class Vision3D(QWidget):
         lbl = QLabel(param)
         v3DEdt = Vision3DEdit(param, objType, parent=self)
         if objType == 'int':
-            v3DEdt.edt.setValidator(QIntValidator())
+            v3DEdt.gui.setValidator(QIntValidator())
         elif objType == 'double':
-            v3DEdt.edt.setValidator(QDoubleValidator())
+            v3DEdt.gui.setValidator(QDoubleValidator())
         val = self._args[param]
-        v3DEdt.edt.setText(str(val))
-        v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
+        v3DEdt.gui.setText(str(val))
+        v3DEdt.gui.editingFinished.connect(v3DEdt.onParameterChanged)
         grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
-        grpBoxLay.addWidget(v3DEdt.edt, row, 2*col+1, rowSpan, colSpan)
-        v3DEdt.edt.setEnabled(enable)
+        grpBoxLay.addWidget(v3DEdt.gui, row, 2*col+1, rowSpan, colSpan)
+        v3DEdt.gui.setEnabled(enable)
         if enable:
-            self._edtCtrParams.append(v3DEdt) # Enabled edits have controls.
+            self._guiCtrParams.append(v3DEdt) # Enabled edits have controls.
         if tooltip:
             lbl.setToolTip(tooltip)
 
@@ -168,10 +168,12 @@ class Vision3D(QWidget):
         lbl = QLabel(param)
         v3DChkBox = Vision3DCheckBox(param, parent=self)
         val = self._args[param]
-        v3DChkBox.chkBox.setCheckState(val)
-        v3DChkBox.chkBox.toggled.connect(v3DChkBox.onParameterChanged)
+        v3DChkBox.gui.setCheckState(val)
+        v3DChkBox.gui.toggled.connect(v3DChkBox.onParameterChanged)
         grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
-        grpBoxLay.addWidget(v3DChkBox.chkBox, row, 2*col+1, rowSpan, colSpan)
+        grpBoxLay.addWidget(v3DChkBox.gui, row, 2*col+1, rowSpan, colSpan)
+        self._guiCtrParams.append(v3DChkBox) # Enabled checkbox may have controls.
+        return v3DChkBox
 
     def _createRdoButParameters(self, grpBoxLay, param, row, col):
         # Create one parameter.
@@ -209,7 +211,6 @@ class Vision3D(QWidget):
         # Close application.
         self._threadLeft.stop()
         self._threadRight.stop()
-        self.v3DRdoBtn.close() # GUI controls lifecycle MUST be consistent with Vision3D lifecycle.
         event.accept()
 
     @pyqtSlot(np.ndarray, QLabel, int, QLabel)
@@ -231,8 +232,8 @@ class Vision3D(QWidget):
         qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
         return QPixmap.fromImage(qtImg)
 
-    @pyqtSlot(int)
-    def calibrationDone(self, vidID):
+    @pyqtSlot(int, bool)
+    def calibrationDone(self, vidID, hasROI):
         # Update calibrated thread status.
         self.lock.acquire()
         self.calibratedThreads += vidID
@@ -244,16 +245,18 @@ class Vision3D(QWidget):
             self.v3DRdoBtn.rdoBoxRaw.setEnabled(True)
             self.v3DRdoBtn.rdoBoxUnd.setEnabled(True)
             self.v3DRdoBtn.rdoBoxStr.setEnabled(True)
-            for v3DEdt in self._edtCtrParams:
-                v3DEdt.edt.setEnabled(True)
+            for v3DEdt in self._guiCtrParams:
+                v3DEdt.gui.setEnabled(True)
+            self._ckbROI.gui.setEnabled(hasROI)
 
     def disableCalibration(self):
         # Disable access to calibration parameters to prevent thread overflow.
         self.v3DRdoBtn.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtn.rdoBoxUnd.setEnabled(False)
         self.v3DRdoBtn.rdoBoxStr.setEnabled(False)
-        for v3DEdt in self._edtCtrParams:
-            v3DEdt.edt.setEnabled(False)
+        for v3DEdt in self._guiCtrParams:
+            v3DEdt.gui.setEnabled(False)
+        self._ckbROI.gui.setEnabled(False)
 
         # Black out frames.
         displayHeight, displayWidth = self._getFrameSize()
