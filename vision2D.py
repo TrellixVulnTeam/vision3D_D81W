@@ -53,7 +53,7 @@ def cmdLineArgs():
 
 def calibrateCamera(args, obj, img, shape):
     # Camera calibration.
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(obj, img, shape, None, None)
+    ret, mtx, dist, rvecs, tvecs, stdDevInt, stdDevExt, perViewErr = cv2.calibrateCameraExtended(obj, img, shape, None, None)
     videoName = '%s%d'%(args.videoType, args.videoID)
     fdh = h5py.File('%s.h5'%videoName, 'w')
     fdh.create_dataset('ret', data=ret)
@@ -67,6 +67,15 @@ def calibrateCamera(args, obj, img, shape):
     shape = (width, height) # OpenCV shapes are width / height.
     fdh.create_dataset('shape', data=shape)
     fdh.close()
+    print('    Std dev int: min', np.min(stdDevInt), 'max', np.max(stdDevInt), 'ave', np.average(stdDevInt))
+    print('    Std dev ext: min', np.min(stdDevExt), 'max', np.max(stdDevExt), 'ave', np.average(stdDevExt))
+    print('    pView error: min', np.min(perViewErr), 'max', np.max(perViewErr), 'ave', np.average(perViewErr))
+    meanError = 0
+    for idx in range(len(obj)):
+        imgPrj, _ = cv2.projectPoints(obj[idx], rvecs[idx], tvecs[idx], mtx, dist)
+        error = cv2.norm(img[idx], imgPrj, cv2.NORM_L2)/len(imgPrj)
+        meanError += error
+    print('    Total error: {}'.format(meanError/len(obj)))
 
     return mtx, dist
 
