@@ -130,19 +130,7 @@ class VideoThread(QThread):
             shapeStr = (widthStr, heightStr)
             newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alphaUnd, shapeStr)
 
-        assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
-        if self._args['CAL']:
-            self._calibrateWithCalibration(mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr)
-        else:
-            self._calibrateWithoutCalibration(mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr)
-
-    def _calibrateWithCalibration(self, mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr):
-        # Stereo calibration of both cameras.
-        # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
-        flags = 0
-        flags |= cv2.CALIB_FIX_INTRINSIC
-        criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        obj = self._cal['obj']
+        # Get left/right sides.
         imgL, imgR = None, None
         mtxL, mtxR, newCamMtxL, newCamMtxR, distL, distR = None, None, None, None, None, None
         shapeL, shapeR = None, None
@@ -172,6 +160,23 @@ class VideoThread(QThread):
             distL = distStr
             heightL, widthL = self._stereo['shape']
             shapeL = (widthL, heightL)
+
+        # Calibrate.
+        assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
+        if self._args['CAL']:
+            self._calibrateWithCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                                           imgR, mtxR, newCamMtxR, distR, shapeR)
+        else:
+            self._calibrateWithoutCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                                              imgR, mtxR, newCamMtxR, distR, shapeR)
+
+    def _calibrateWithCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
+        # Stereo calibration of both cameras.
+        # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
+        flags = 0
+        flags |= cv2.CALIB_FIX_INTRINSIC
+        criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        obj = self._cal['obj']
         height, width = self._cal['shape']
         shape = (width, height)
         ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
@@ -199,37 +204,8 @@ class VideoThread(QThread):
             self._args['roiCam'] = roiCamR
         self._args['stereoMap'] = stereoMap
 
-    def _calibrateWithoutCalibration(self, mtx, newCamMtx, dist, mtxStr, newCamMtxStr, distStr):
+    def _calibrateWithoutCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
         # Compute fundamental matrix without knowing intrinsic parameters of the cameras and their relative positions.
-        imgL, imgR = None, None
-        mtxL, mtxR, newCamMtxL, newCamMtxR, distL, distR = None, None, None, None, None, None
-        shapeL, shapeR = None, None
-        if self._cal['side'] == 'left':
-            imgL = self._cal['img']
-            mtxL = mtx
-            newCamMtxL = newCamMtx
-            distL = dist
-            heightL, widthL = self._cal['shape']
-            shapeL = (widthL, heightL)
-            imgR = self._stereo['img']
-            mtxR = mtxStr
-            newCamMtxR = newCamMtxStr
-            distR = distStr
-            heightR, widthR = self._stereo['shape']
-            shapeR = (widthR, heightR)
-        else:
-            imgR = self._cal['img']
-            mtxR = mtx
-            newCamMtxR = newCamMtx
-            distR = dist
-            heightR, widthR = self._cal['shape']
-            shapeR = (widthR, heightR)
-            imgL = self._stereo['img']
-            mtxL = mtxStr
-            newCamMtxL = newCamMtxStr
-            distL = distStr
-            heightL, widthL = self._stereo['shape']
-            shapeL = (widthL, heightL)
         imgPtsL = []
         for img in imgL:
             for corner in img:
