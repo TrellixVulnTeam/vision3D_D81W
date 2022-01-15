@@ -89,7 +89,7 @@ class VideoThread(QThread):
         # Impact is needed.
         # Keep track of what must be done in order to handle it in main thread (run).
         # Do NOT run job here (too many callbacks may overflow the main thread).
-        if param == 'mode' or param == 'CAL' or 'alpha' in param: # Parameters with high impact (time).
+        if param == 'mode' or param == 'alpha' or param == 'CAL': # Parameters with high impact (time).
             self._needCalibration = (param, newValue)
         else: # Parameters which with no impact (immediate).
             self._args[param] = newValue
@@ -109,11 +109,11 @@ class VideoThread(QThread):
         # Calibrate camera individually based on free scaling parameter.
         mtx, dist = self._cal['mtx'], self._cal['dist']
         newCamMtx, roiCam = mtx, False
-        alphaUnd = self._args['alpha-und']
-        if alphaUnd >= 0.:
+        alpha = self._args['alpha']
+        if alpha >= 0.:
             height, width = self._cal['shape']
             shape = (width, height)
-            newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alphaUnd, shape)
+            newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
         self._args['newCamMtx'] = newCamMtx
         self._args['roiCam'] = roiCam
 
@@ -124,11 +124,11 @@ class VideoThread(QThread):
         # Calibrate stereo (sister) camera individually based on free scaling parameter.
         mtxStr, distStr = self._stereo['mtx'], self._stereo['dist']
         newCamMtxStr, roiCamStr = mtxStr, False
-        alphaUnd = self._args['alpha-und']
-        if alphaUnd >= 0.:
+        alpha = self._args['alpha']
+        if alpha >= 0.:
             heightStr, widthStr = self._stereo['shape']
             shapeStr = (widthStr, heightStr)
-            newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alphaUnd, shapeStr)
+            newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
 
         # Get left/right sides.
         imgL, imgR = None, None
@@ -187,13 +187,13 @@ class VideoThread(QThread):
                                                                                                 flags=flags)
 
         # Stereo rectification based on calibration.
-        alphaStr = -1 # Default scaling.
-        if self._args['alpha-str'] >= 0.:
-            alphaStr = self._args['alpha-str']
+        alpha = -1 # Default scaling.
+        if self._args['alpha'] >= 0.:
+            alpha = self._args['alpha']
         rectL, rectR, prjCamMtxL, prjCamMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
                                                                                          newCamMtxR, distR,
                                                                                          shape, rot, trans,
-                                                                                         alpha=alphaStr,
+                                                                                         alpha=alpha,
                                                                                          newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
@@ -247,8 +247,7 @@ class VideoThread(QThread):
                 msg = 'stream%02d-run'%self._args['videoID']
                 msg += ', FPS %02d'%fps
                 msg += ', mode %s'%self._args['mode']
-                msg += ', alpha-und %.3f'%self._args['alpha-und']
-                msg += ', alpha-str %.3f'%self._args['alpha-str']
+                msg += ', alpha %.3f'%self._args['alpha']
                 msg += ', CAL %s'%self._args['CAL']
                 msg += ', ROI %s'%self._args['ROI']
                 logger.debug(msg)
@@ -302,8 +301,7 @@ class VideoThread(QThread):
         stop = time.time()
         msg = 'stream%02d-cal'%self._args['videoID']
         msg += ', mode %s'%self._args['mode']
-        msg += ', alpha-und %.3f s'%self._args['alpha-und']
-        msg += ', alpha-str %.3f s'%self._args['alpha-str']
+        msg += ', alpha %.3f s'%self._args['alpha']
         msg += ', CAL %s'%self._args['CAL']
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)

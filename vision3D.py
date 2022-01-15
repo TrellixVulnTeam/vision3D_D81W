@@ -76,8 +76,7 @@ class Vision3D(QWidget):
 
         # Create parameters.
         self._args = args.copy()
-        self._args['alpha-und'] = 0.
-        self._args['alpha-str'] = 0.
+        self._args['alpha'] = 0.
         self._args['CAL'] = False
         self._args['ROI'] = False
         self._args['DBG'] = False
@@ -94,22 +93,19 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 6)
-        tooltip = 'Free scaling parameter between 0 (when all the pixels in the undistorted\n'
-        tooltip += 'image are valid) and 1 (when all the source image pixels are retained\n'
-        tooltip += 'in the undistorted image). Any intermediate value yields an intermediate\n'
-        tooltip += 'result between those two extreme cases. If negative, the function performs\n'
-        tooltip += 'the default scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha-und', 2, 8, enable=True, objType='double', tooltip=tooltip)
-        tooltip = 'Free scaling parameter between 0 (rectified images are zoomed and shifted so\n'
-        tooltip += 'that only valid pixels are visible: no black areas after rectification) and\n'
-        tooltip += '1 (rectified image is decimated and shifted so that all the pixels from the\n'
-        tooltip += 'original images from the cameras are retained in the rectified images: no source\n'
-        tooltip += 'image pixels are lost). Any intermediate value yields an intermediate result between\n'
-        tooltip += 'those two extreme cases. If negative, the function performs the default scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha-str', 3, 8, enable=True, objType='double', tooltip=tooltip)
+        tooltip = 'Free scaling parameter between 0 and 1.\n'
+        tooltip += '  - 0: rectified images are zoomed and shifted so\n'
+        tooltip += '       that only valid pixels are visible: no black areas after rectification\n'
+        tooltip += '  - 1: rectified image is decimated and shifted so that all the pixels from the\n'
+        tooltip += '       original images from the cameras are retained in the rectified images:\n'
+        tooltip += '       no source image pixels are lost.\n'
+        tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
+        tooltip += 'If negative, the function performs the default scaling.'
+        self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
+                                   enable=True, objType='double', tooltip=tooltip)
+        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 10, rowSpan=2, colSpan=1)
         self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7)
-        self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, 2, 2)
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 9)
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 10)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
@@ -147,7 +143,8 @@ class Vision3D(QWidget):
         self._threadRight.calibrationDoneSignal.connect(self.calibrationDone)
         self._threadRight.start()
 
-    def _createEditParameters(self, grpBoxLay, param, row, col, enable=False, objType='int', tooltip=None):
+    def _createEditParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1,
+                              enable=False, objType='int', tooltip=None):
         # Create one parameter.
         lbl = QLabel(param)
         v3DEdt = Vision3DEdit(param, objType, parent=self)
@@ -158,8 +155,8 @@ class Vision3D(QWidget):
         val = self._args[param]
         v3DEdt.edt.setText(str(val))
         v3DEdt.edt.editingFinished.connect(v3DEdt.onParameterChanged)
-        grpBoxLay.addWidget(lbl, row, 2*col+0)
-        grpBoxLay.addWidget(v3DEdt.edt, row, 2*col+1)
+        grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
+        grpBoxLay.addWidget(v3DEdt.edt, row, 2*col+1, rowSpan, colSpan)
         v3DEdt.edt.setEnabled(enable)
         if enable:
             self._edtCtrParams.append(v3DEdt) # Enabled edits have controls.
