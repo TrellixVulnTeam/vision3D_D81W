@@ -56,9 +56,9 @@ Friendlyarm: rockchip
   ~> sudo apt-get -y upgrade
 
   ~/Programs> git clone https://github.com/opencv/opencv_contrib
-  ~/Programs/opencv_contrib> git checkout 4.5.4
+  ~/Programs/opencv_contrib> git checkout 4.5.5
   ~/Programs> git clone https://github.com/opencv/opencv
-  ~/Programs/opencv> git checkout 4.5.4
+  ~/Programs/opencv> git checkout 4.5.5
 
   ~> sudo apt-get install build-essential cmake git unzip pkg-config zlib1g-dev \
                           libjpeg-dev libjpeg8-dev libjpeg-turbo8-dev \
