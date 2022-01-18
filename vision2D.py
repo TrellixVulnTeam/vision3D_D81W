@@ -89,7 +89,6 @@ def calibrateCameraFisheye(args, obj, img, shape):
     fdh.create_dataset('tvecs', data=tvecs)
     fdh.create_dataset('obj', data=obj)
     fdh.create_dataset('img', data=img)
-    fdh.create_dataset('fisheye', data=True)
     fdh.create_dataset('shape', data=shape)
     fdh.close()
     calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist)
@@ -108,7 +107,6 @@ def calibrateCamera(args, obj, img, shape):
     fdh.create_dataset('tvecs', data=tvecs)
     fdh.create_dataset('obj', data=obj)
     fdh.create_dataset('img', data=img)
-    fdh.create_dataset('fisheye', data=False)
     fdh.create_dataset('shape', data=shape)
     fdh.close()
     print('    Std dev int: min', np.min(stdDevInt), 'max', np.max(stdDevInt), 'ave', np.average(stdDevInt))
@@ -181,9 +179,7 @@ def initCalibration(args):
         mtx = fdh['mtx'][...]
         dist = fdh['dist'][...]
         shape = fdh['shape'][...]
-        fisheye = fdh['fisheye'][...]
         fdh.close()
-        assert args.fisheye == fisheye, 'bad calibration parameters: fisheye %s-%s.'%(args.fisheye, fisheye)
 
     if args.fisheye:
         newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
