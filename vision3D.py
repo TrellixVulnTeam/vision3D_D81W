@@ -24,21 +24,24 @@ class Vision3DEdit(QWidget):
 
     def onParameterChanged(self):
         # Callback on parameter change.
-        value = self.gui.text() # Text which has been modified.
-        self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
         if self.gui.isEnabled():
             self._vision3D.disableCalibration()
+        value = self.gui.text() # Text which has been modified.
+        self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
 
 class Vision3DCheckBox(QWidget):
-    def __init__(self, param, parent=None):
+    def __init__(self, param, triggerDisable, parent=None):
         # Initialise.
         super().__init__(parent)
         self.gui = QCheckBox()
         self._param = param # Track associated parameter.
+        self._triggerDisable = triggerDisable # Need to disable calibration on callback.
         self._vision3D = parent
 
     def onParameterChanged(self):
         # Callback on parameter change.
+        if self._triggerDisable:
+            self._vision3D.disableCalibration()
         value = self.gui.isChecked() # State which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
@@ -59,9 +62,9 @@ class Vision3DRadioButton(QWidget):
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
+            self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
-            self._vision3D.disableCalibration()
 
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
@@ -77,6 +80,8 @@ class Vision3D(QWidget):
         # Create parameters.
         self._args = args.copy()
         self._args['alpha'] = 0.
+        self._args['fovScale'] = 1.
+        self._args['balance'] = 0.
         self._args['CAL'] = False
         self._args['ROI'] = False
         self._args['DBG'] = False
@@ -93,19 +98,28 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
         self._createRdoButParameters(grpBoxLay, 'mode', 0, 6)
-        tooltip = 'Free scaling parameter between 0 and 1.\n'
-        tooltip += '  - 0: rectified images are zoomed and shifted so\n'
-        tooltip += '       that only valid pixels are visible: no black areas after rectification\n'
-        tooltip += '  - 1: rectified image is decimated and shifted so that all the pixels from the\n'
-        tooltip += '       original images from the cameras are retained in the rectified images:\n'
-        tooltip += '       no source image pixels are lost.\n'
-        tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
-        tooltip += 'If negative, the function performs the default scaling.'
-        self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
-                                   enable=True, objType='double', tooltip=tooltip)
-        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 10, rowSpan=2, colSpan=1)
-        self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7)
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 10)
+        if self._args['fisheye']:
+            tooltip = 'Divisor for new focal length.'
+            self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+            tooltip = 'Sets the new focal length in range between the min focal length and the max\n'
+            tooltip += 'focal length. Balance is in range of [0, 1].'
+            self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+        else:
+            self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7, triggerDisable=True)
+            tooltip = 'Free scaling parameter between 0 and 1.\n'
+            tooltip += '  - 0: rectified images are zoomed and shifted so\n'
+            tooltip += '       that only valid pixels are visible: no black areas after rectification\n'
+            tooltip += '  - 1: rectified image is decimated and shifted so that all the pixels from the\n'
+            tooltip += '       original images from the cameras are retained in the rectified images:\n'
+            tooltip += '       no source image pixels are lost.\n'
+            tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
+            tooltip += 'If negative, the function performs the default scaling.'
+            self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 9)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
@@ -163,10 +177,10 @@ class Vision3D(QWidget):
         if tooltip:
             lbl.setToolTip(tooltip)
 
-    def _createChkBoxParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1):
+    def _createChkBoxParameters(self, grpBoxLay, param, row, col, triggerDisable=False, rowSpan=1, colSpan=1):
         # Create one parameter.
         lbl = QLabel(param)
-        v3DChkBox = Vision3DCheckBox(param, parent=self)
+        v3DChkBox = Vision3DCheckBox(param, triggerDisable, parent=self)
         val = self._args[param]
         v3DChkBox.gui.setCheckState(val)
         v3DChkBox.gui.toggled.connect(v3DChkBox.onParameterChanged)
@@ -291,6 +305,8 @@ def cmdLineArgs():
                         help='define display width')
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
+    parser.add_argument('--fisheye', dest='fisheye', action='store_true',
+                        help='use fisheye cameras.')
     args = parser.parse_args()
 
     return args

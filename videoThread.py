@@ -34,8 +34,9 @@ class VideoThread(QThread):
 
         # Get camera calibration parameters from target camera.
         self._cal = {}
-        videoName = '%s%d'%(args['videoType'], vidID)
-        fname = '%s.h5'%videoName
+        fileID = '%s%d'%(args['videoType'], vidID)
+        calibType = 'fsh' if args['fisheye'] else 'std'
+        fname = '%s-%s.h5'%(fileID, calibType)
         if os.path.isfile(fname):
             fdh = h5py.File(fname, 'r')
             for key in fdh:
@@ -57,16 +58,17 @@ class VideoThread(QThread):
             self._stereo['side'] = 'left'
             vidIDStr = self._args['videoIDLeft']
         assert vidIDStr is not None, 'can t get other camera.'
-        videoName = '%s%d'%(args['videoType'], vidIDStr)
-        fname = '%s.h5'%videoName
-        if os.path.isfile(fname):
-            fdh = h5py.File(fname, 'r')
+        fileIDStr = '%s%d'%(args['videoType'], vidIDStr)
+        fnameStr = '%s-%s.h5'%(fileIDStr, calibType)
+        if os.path.isfile(fnameStr):
+            fdh = h5py.File(fnameStr, 'r')
             for key in fdh:
                 self._stereo[key] = fdh[key][...]
             fdh.close()
         assert len(self._stereo.keys()) > 0, 'camera %d is not calibrated.'%vidIDStr
         msg = 'stream%02d-ini'%self._args['videoID']
-        msg += ', stereo %s-%02d (with %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
+        msg += ', side %s-%02d (stereo %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
+        msg += ', file %s (stereo %s)'%(fname, fnameStr)
         logger.info(msg)
 
     @pyqtSlot(str, str, object)
@@ -86,12 +88,15 @@ class VideoThread(QThread):
         if self._args[param] == newValue:
             return # Nothing to do.
 
-        # Impact is needed.
+        # High impact is needed.
         # Keep track of what must be done in order to handle it in main thread (run).
         # Do NOT run job here (too many callbacks may overflow the main thread).
-        if param == 'mode' or param == 'alpha' or param == 'CAL': # Parameters with high impact (time).
+        highImpact = param == 'mode'
+        highImpact = highImpact or param == 'alpha' or param == 'fovScale' or param == 'balance'
+        highImpact = highImpact or param == 'CAL'
+        if highImpact: # Parameters with high impact (time, calibration computation).
             self._needCalibration = (param, newValue)
-        else: # Parameters which with no impact (immediate).
+        else: # Parameters which with no impact (immediate: ROI, DBG).
             self._args[param] = newValue
 
         # Update logger level.
@@ -112,7 +117,13 @@ class VideoThread(QThread):
         alpha = self._args['alpha']
         if alpha >= 0.:
             shape = self._cal['shape']
-            newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+            if self._args['fisheye']:
+                newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
+                                                                                   np.eye(3), new_size=shape,
+                                                                                   fov_scale=self._args['fovScale'],
+                                                                                   balance=self._args['balance'])
+            else:
+                newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
         self._args['newCamMtx'] = newCamMtx
         self._args['roiCam'] = roiCam
 
@@ -126,7 +137,13 @@ class VideoThread(QThread):
         alpha = self._args['alpha']
         if alpha >= 0.:
             shapeStr = self._stereo['shape']
-            newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
+            if self._args['fisheye']:
+                newCamMtxStr = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtxStr, distStr, shapeStr,
+                                                                                      np.eye(3), new_size=shapeStr,
+                                                                                      fov_scale=self._args['fovScale'],
+                                                                                      balance=self._args['balance'])
+            else:
+                newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
 
         # Get left/right sides.
         imgL, imgR = None, None
@@ -157,12 +174,47 @@ class VideoThread(QThread):
 
         # Calibrate.
         assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
-        if self._args['CAL']:
-            self._calibrateWithCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
-                                           imgR, mtxR, newCamMtxR, distR, shapeR)
+        if self._args['fisheye']:
+            self._calibrateWithFisheyeCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                                                  imgR, mtxR, newCamMtxR, distR, shapeR)
         else:
-            self._calibrateWithoutCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
-                                              imgR, mtxR, newCamMtxR, distR, shapeR)
+            if self._args['CAL']:
+                self._calibrateWithCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                                               imgR, mtxR, newCamMtxR, distR, shapeR)
+            else:
+                self._calibrateWithoutCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                                                  imgR, mtxR, newCamMtxR, distR, shapeR)
+
+    def _calibrateWithFisheyeCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
+        # Stereo calibration of both cameras.
+        # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
+        flags = 0
+        flags |= cv2.fisheye.CALIB_CHECK_COND
+        criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        obj = self._cal['obj']
+        shape = self._cal['shape']
+        objExp = np.expand_dims(np.asarray(obj), -2)
+        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(objExp, imgL, imgR,
+                                                                                            newCamMtxL, distL,
+                                                                                            newCamMtxR, distR,
+                                                                                            shape,
+                                                                                            criteria=criteria,
+                                                                                            flags=flags)
+
+        # Stereo rectification based on calibration.
+        rectL, rectR, prjCamMtxL, prjCamMtxR, matQ = cv2.fisheye.stereoRectify(newCamMtxL, distL,
+                                                                               newCamMtxR, distR,
+                                                                               shape, rot, trans,
+                                                                               fov_scale=self._args['fovScale'],
+                                                                               balance=self._args['balance'],
+                                                                               newImageSize=shape)
+        stereoMap = None
+        if self._cal['side'] == 'left':
+            stereoMap = cv2.fisheye.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjCamMtxL, shapeL, cv2.CV_16SC2)
+        else:
+            stereoMap = cv2.fisheye.initUndistortRectifyMap(newCamMtxR, distR, rectR, prjCamMtxR, shapeR, cv2.CV_16SC2)
+        self._args['roiCam'] = False # With fisheye calibration, no ROI.
+        self._args['stereoMap'] = stereoMap
 
     def _calibrateWithCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
         # Stereo calibration of both cameras.
@@ -214,12 +266,8 @@ class VideoThread(QThread):
         # Stereo rectification without knowing calibration.
         shape = self._cal['shape']
         ret, matHL, matHR = cv2.stereoRectifyUncalibrated(imgPtsL, imgPtsR, fMtx, shape)
-
-        # Compute rotations.
         rectL = np.dot(np.dot(np.linalg.inv(mtxL), matHL), mtxL)
         rectR = np.dot(np.dot(np.linalg.inv(mtxR), matHR), mtxR)
-
-        # Stereo rectification without calibration.
         stereoMap = None
         if self._cal['side'] == 'left':
             stereoMap = cv2.initUndistortRectifyMap(mtxL, distL, rectL, newCamMtxL, shapeL, cv2.CV_16SC2)
@@ -263,7 +311,10 @@ class VideoThread(QThread):
             # Undistort or stereo on demand.
             if self._args['mode'] == 'und':
                 newCamMtx = self._args['newCamMtx']
-                undFrame = cv2.undistort(frame, mtx, dist, None, newCamMtx)
+                if self._args['fisheye']:
+                    undFrame = cv2.fisheye.undistortImage(frame, mtx, dist, Knew=newCamMtx)
+                else:
+                    undFrame = cv2.undistort(frame, mtx, dist, None, newCamMtx)
                 frame = undFrame # Replace frame with undistorted frame.
             elif self._args['mode'] == 'str':
                 stereoMap = self._args['stereoMap']
