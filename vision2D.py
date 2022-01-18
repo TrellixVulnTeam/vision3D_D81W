@@ -81,7 +81,7 @@ def calibrateCameraFisheye(args, obj, img, shape):
     objExp = np.expand_dims(np.asarray(obj), -2)
     ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objExp, img, shape, mtx, dist)
     fileID = getFileID(args)
-    fdh = h5py.File('%s.h5'%fileID, 'w')
+    fdh = h5py.File('%s-fsh.h5'%fileID, 'w')
     fdh.create_dataset('ret', data=ret)
     fdh.create_dataset('mtx', data=mtx)
     fdh.create_dataset('dist', data=dist)
@@ -100,7 +100,7 @@ def calibrateCamera(args, obj, img, shape):
     # Camera calibration.
     ret, mtx, dist, rvecs, tvecs, stdDevInt, stdDevExt, perViewErr = cv2.calibrateCameraExtended(obj, img, shape, None, None)
     fileID = getFileID(args)
-    fdh = h5py.File('%s.h5'%fileID, 'w')
+    fdh = h5py.File('%s-std.h5'%fileID, 'w')
     fdh.create_dataset('ret', data=ret)
     fdh.create_dataset('mtx', data=mtx)
     fdh.create_dataset('dist', data=dist)
@@ -174,7 +174,8 @@ def initCalibration(args):
     mtx, dist, newCamMtx = None, None, None
     shape = None
     fileID = getFileID(args)
-    fname = '%s.h5'%fileID
+    calibType = 'fsh' if args.fisheye else 'std'
+    fname = '%s-%s.h5'%(fileID, calibType)
     if os.path.isfile(fname):
         fdh = h5py.File(fname, 'r')
         mtx = fdh['mtx'][...]
