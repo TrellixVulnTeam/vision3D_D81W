@@ -121,8 +121,13 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
 
     # Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
     cbX, cbY = args.chessboardX, args.chessboardY
-    objPt = np.zeros((cbX*cbY, 3), np.float32)
-    objPt[:, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
+    objPt = None
+    if args.fisheye:
+        objPt = np.zeros((1, cbX*cbY, 3), np.float32) # Caution: dimension for fisheye/standard are not the same.
+        objPt[0, :, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
+    else:
+        objPt = np.zeros((cbX*cbY, 3), np.float32) # Caution: dimension for fisheye/standard are not the same.
+        objPt[:, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
     objPt = objPt*args.squareSize # This makes 3D points spaced as they really are on the (physical) chessboard.
 
     # Find the chess board corners
