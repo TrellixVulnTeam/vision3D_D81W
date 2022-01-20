@@ -71,7 +71,7 @@ class VideoThread(threading.Thread):
             if key == ord('s') or self._saveFrame: # Press 's' to save, or, triggered by other.
                 if key == ord('s') and self.otherThd is not None:
                     self.otherThd.triggerSave() # Caution: trigger only on press key.
-                self.onSave()
+                self.onSave() # Both threads must take the same picture at the same time.
         vid.release()
         cv2.destroyAllWindows()
 
@@ -104,7 +104,7 @@ def main():
         strThd = VideoThread(args)
 
     # Create connection between threads.
-    if strThd is not None:
+    if strThd is not None: # Both threads must take the same picture at the same time.
         mainThd.otherThd = strThd
         strThd.otherThd = mainThd
 
