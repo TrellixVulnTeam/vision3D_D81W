@@ -117,7 +117,7 @@ def calibrateCamera(args, obj, img, shape):
 
 def chessboardCalibration(args, frame, obj, img, delay=0):
     # Termination criteria.
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.0001)
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
 
     # Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
     cbX, cbY = args.chessboardX, args.chessboardY
