@@ -77,8 +77,11 @@ def calibrateCameraFisheye(args, obj, img, shape):
     # Fisheye camera calibration.
     mtx = np.zeros((3, 3))
     dist = np.zeros((4, 1))
-    objExp = np.expand_dims(np.asarray(obj), -2)
-    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(objExp, img, shape, mtx, dist)
+    flags = cv2.fisheye.CALIB_CHECK_COND + cv2.fisheye.CALIB_FIX_SKEW
+    flags += cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC # Caution: imperative for good results.
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
+    ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(obj, img, shape, mtx, dist,
+                                                         flags=flags, criteria=criteria)
     fileID = getFileID(args)
     fdh = h5py.File('%s-fsh.h5'%fileID, 'w')
     fdh.create_dataset('ret', data=ret)
@@ -96,7 +99,10 @@ def calibrateCameraFisheye(args, obj, img, shape):
 
 def calibrateCamera(args, obj, img, shape):
     # Camera calibration.
-    ret, mtx, dist, rvecs, tvecs, stdDevInt, stdDevExt, perViewErr = cv2.calibrateCameraExtended(obj, img, shape, None, None)
+    flags = cv2.CALIB_FIX_INTRINSIC
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
+    ret, mtx, dist, rvecs, tvecs, stdDevInt, stdDevExt, perViewErr = cv2.calibrateCameraExtended(obj, img, shape, None, None,
+                                                                                                 flags=flags, criteria=criteria)
     fileID = getFileID(args)
     fdh = h5py.File('%s-std.h5'%fileID, 'w')
     fdh.create_dataset('ret', data=ret)
