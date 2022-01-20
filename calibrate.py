@@ -158,7 +158,7 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
         obj.append(objPt)
         img.append(cornersSP) # Keep corners found with sub pixels.
     else:
-        print(': drop (%d corners)' % nbc, flush=True)
+        print(': drop', flush=True)
 
     return ret
 
