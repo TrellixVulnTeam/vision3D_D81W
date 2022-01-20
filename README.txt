@@ -164,8 +164,8 @@ Vision3D:
 
   ~/vision3D> module load opencv
   ~/vision3D> python3 capture.py --videoID 1 --videoIDStr 5 --hardware arm-nanopc
-  ~/vision3D> python3 calibrate.py --videoID 1 --hardware arm-nanopc --calibration-load-frames
+  ~/vision3D> python3 calibrate.py --videoID 1 --hardware arm-nanopc --calibration-load-frames [--fisheye]
   ~/vision3D> h5ls -flr CSI1.h5
-  ~/vision3D> python3 calibrate.py --videoID 5 --hardware arm-nanopc --calibration-load-frames
+  ~/vision3D> python3 calibrate.py --videoID 5 --hardware arm-nanopc --calibration-load-frames [--fisheye]
   ~/vision3D> h5ls -flr CSI5.h5
-  ~/vision3D> python3 vision3D.py --videoIDLeft 1 --videoIDRight 5 --hardware arm-nanopc
+  ~/vision3D> python3 vision3D.py --videoIDLeft 1 --videoIDRight 5 --hardware arm-nanopc [--fisheye]
