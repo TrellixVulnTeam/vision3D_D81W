@@ -130,7 +130,9 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
     ret, corners = cv2.findChessboardCorners(gray, (cbX, cbY), None)
 
     # If found, add object points, image points (after refining them)
-    print(' Chessboard found %s' % ret, end='', flush=True)
+    nbc = 0 if corners is None else len(corners)
+    print(' Chessboard found %s with %d corners' % (ret, nbc), end='', flush=True)
+    ret = ret and (nbc == cbX*cbY) # Check all chessboard corners have been found.
     if ret == True:
         # Draw and display the corners
         print(': keep', flush=True)
@@ -145,7 +147,6 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
         obj.append(objPt)
         img.append(cornersSP) # Keep corners found with sub pixels.
     else:
-        nbc = 0 if not corners else len(corners)
         print(': drop (%d corners)' % nbc, flush=True)
 
     return ret
