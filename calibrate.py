@@ -13,7 +13,7 @@ import glob
 
 def cmdLineArgs():
     # Create parser.
-    dscr = 'script designed to check and calibrate video stream.'
+    dscr = 'script designed to calibrate video streams from captured frames.'
     parser = argparse.ArgumentParser(description=dscr)
     parser.add_argument('--hardware', type=str, required=True, metavar='HW',
                         choices=['arm-jetson', 'arm-nanopc', 'x86'],
@@ -35,11 +35,11 @@ def cmdLineArgs():
                         help='define display width')
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
-    parser.add_argument('--calibration', type=int, nargs=4, metavar=('NF', 'CX', 'CY', 'SS'),
-                        default=[10, 7, 10, 25],
-                        help='calibration: NF frames, chessboard size (CX, CY), SS square size (mm)')
-    parser.add_argument('--calibration-reload-frames', dest='reload', action='store_true',
-                        help='reload frames, if any, used during previous calibration.')
+    parser.add_argument('--calibration', type=int, nargs=3, metavar=('CX', 'CY', 'SS'),
+                        default=[7, 10, 20],
+                        help='calibration: chessboard size (CX, CY), SS square size (mm)')
+    parser.add_argument('--calibration-load-frames', dest='load', action='store_true',
+                        help='load frames necessary for calibration.')
     parser.add_argument('--alpha', type=float, default=0., metavar='A',
                         help='free scaling parameter used to compute camera matrix.')
     parser.add_argument('--fisheye', dest='fisheye', action='store_true',
@@ -51,10 +51,9 @@ def cmdLineArgs():
     args = parser.parse_args()
 
     # Convert calibration parameters.
-    args.nbFrames = args.calibration[0]
-    args.chessboardX = args.calibration[1]
-    args.chessboardY = args.calibration[2]
-    args.squareSize = args.calibration[3]
+    args.chessboardX = args.calibration[0]
+    args.chessboardY = args.calibration[1]
+    args.squareSize = args.calibration[2]
 
     return args
 
@@ -151,21 +150,24 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
 
     return ret
 
-def initFrames(args, frames, obj, img):
+def initFrames(args):
     # Initialise frames needed for calibration.
     frames = []
     obj = [] # 3d point in real world space
     img = [] # 2d points in image plane.
+    shape = None
     print('Loading frames...', flush=True)
     fileID = getFileID(args)
     for fname in sorted(glob.glob(fileID + '-*.jpg')):
         print('  Loading %s...' % fname, end='', flush=True)
         frame = cv2.imread(fname)
+        height, width, channel = frame.shape # Numpy shapes are height / width / channel.
+        shape = (width, height) # OpenCV shapes are width / height.
         ret = chessboardCalibration(args, frame, obj, img, delay=1000)
         if ret:
             frames.append(frame)
 
-    return frames, obj, img
+    return frames, obj, img, shape
 
 def initCalibration(args):
     # Initialise calibration parameters if available.
@@ -192,20 +194,37 @@ def initCalibration(args):
 
     return mtx, dist, newCamMtx
 
+def runCalibration(args):
+    # Calibrate camera.
+    mtx, dist, newCamMtx = None, None, None
+    frames, obj, img, shape = initFrames(args)
+    assert len(frames) > 0, 'no frame, no calibration.'
+    print('  Calibrating...', flush=True)
+    if args.fisheye:
+        mtx, dist = calibrateCameraFisheye(args, obj, img, shape)
+        newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
+                                                                           np.eye(3), new_size=shape,
+                                                                           fov_scale=args.fovScale,
+                                                                           balance=args.balance)
+    else:
+        mtx, dist = calibrateCamera(args, obj, img, shape)
+        alpha = args.alpha
+        newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+
+    return mtx, dist, newCamMtx
+
 def main():
     # Get command line arguments.
     args = cmdLineArgs()
 
-    # Initialise: reload frames and re-calibrate, or, reuse previous calibration.
+    # Initialise: load frames and calibrate, or, reuse previous calibration.
     mtx, dist, newCamMtx = None, None, None
-    frames, obj, img = [], [], []
-    if args.reload: # Reload previous frames on demand.
-        frames, obj, img = initFrames(args, frames, obj, img)
+    if args.load:
+        mtx, dist, newCamMtx = runCalibration(args)
     else:
         mtx, dist, newCamMtx = initCalibration(args)
 
     # Capture video stream.
-    shape = None
     vid = VideoStream(vars(args))
     print('Capturing frames...', flush=True)
     while(vid.isOpened()):
@@ -213,12 +232,10 @@ def main():
         frameOK, frame, fps = vid.read()
         if not frameOK:
             continue
-        height, width, channel = frame.shape # Numpy shapes are height / width / channel.
-        shape = (width, height) # OpenCV shapes are width / height.
 
         # Display the resulting frame.
         print('  FPS %d'%fps, flush=True)
-        cv2.imshow('Video raw [c capture, q quit]', frame)
+        cv2.imshow('Video raw [q quit]', frame)
         if mtx is not None and dist is not None:
             if args.fisheye:
                 undFrame = cv2.fisheye.undistortImage(frame, mtx, dist, Knew=newCamMtx)
@@ -232,44 +249,6 @@ def main():
         if key == ord('q'): # Press 'q' to quit.
             print('  Exiting...', flush=True)
             break
-
-        # Check if we still need to capture frames.
-        if frames is None:
-            continue
-
-        # Wait for key from user according to displayed frame.
-        if key == ord('c'): # Press 'c' to capture.
-            print('  Capturing frame %s...' % len(frames), end='', flush=True)
-            cv2.destroyAllWindows()
-            cv2.imshow('Captured frame: keep? [y/n]', frame)
-            key = cv2.waitKey(0) & 0xFF
-            if key == ord('y'):
-                cv2.destroyAllWindows()
-                ret = chessboardCalibration(args, frame, obj, img)
-                if ret == True:
-                    frames.append(frame)
-            cv2.destroyAllWindows()
-
-        # Calibrate camera.
-        if len(frames) >= args.nbFrames:
-            print('  Calibrating...', flush=True)
-            if args.fisheye:
-                mtx, dist = calibrateCameraFisheye(args, obj, img, shape)
-                newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
-                                                                                   np.eye(3), new_size=shape,
-                                                                                   fov_scale=args.fovScale,
-                                                                                   balance=args.balance)
-            else:
-                mtx, dist = calibrateCamera(args, obj, img, shape)
-                alpha = args.alpha
-                newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
-
-            # Save frames used to calibrate.
-            print('  Saving frames...', flush=True)
-            fileID = getFileID(args)
-            for idx, frame in enumerate(frames):
-                cv2.imwrite(fileID + '-%02d.jpg'%idx, frame)
-            frames = None # Now calibration is done and frames are saved, no more capture.
 
     # After the loop release the video stream.
     print('Releasing video stream...', flush=True)
