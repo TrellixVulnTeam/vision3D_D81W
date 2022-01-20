@@ -163,6 +163,7 @@ Vision3D:
 =========
 
   ~/vision3D> module load opencv
+  ~/vision3D> python3 capture.py --videoID 1 --videoIDStr 5 --hardware arm-nanopc
   ~/vision3D> python3 vision2D.py --videoID 1 --hardware arm-nanopc
   ~/vision3D> h5ls -flr CSI1.h5
   ~/vision3D> python3 vision2D.py --videoID 5 --hardware arm-nanopc
