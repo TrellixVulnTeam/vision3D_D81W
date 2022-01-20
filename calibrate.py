@@ -36,7 +36,7 @@ def cmdLineArgs():
     parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
                         help='define display height')
     parser.add_argument('--calibration', type=int, nargs=3, metavar=('CX', 'CY', 'SS'),
-                        default=[7, 10, 20],
+                        default=[7, 10, 25],
                         help='calibration: chessboard size (CX, CY), SS square size (mm)')
     parser.add_argument('--calibration-load-frames', dest='load', action='store_true',
                         help='load frames necessary for calibration.')
