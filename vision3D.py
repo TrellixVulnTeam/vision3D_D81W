@@ -264,6 +264,13 @@ class Vision3D(QWidget):
             self._ckbROI.gui.setEnabled(hasROI)
 
     def disableCalibration(self):
+        # Black out frames.
+        displayHeight, displayWidth = self._getFrameSize()
+        shape = (displayHeight, displayWidth)
+        frame = np.ones(shape, np.uint8) # Black image.
+        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
+        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
+
         # Disable access to calibration parameters to prevent thread overflow.
         self.v3DRdoBtn.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtn.rdoBoxUnd.setEnabled(False)
@@ -271,13 +278,6 @@ class Vision3D(QWidget):
         for v3DEdt in self._guiCtrParams:
             v3DEdt.gui.setEnabled(False)
         self._ckbROI.gui.setEnabled(False)
-
-        # Black out frames.
-        displayHeight, displayWidth = self._getFrameSize()
-        shape = (displayHeight, displayWidth)
-        frame = np.ones(shape, np.uint8) # Black image.
-        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
-        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
 
 def cmdLineArgs():
     # Create parser.
