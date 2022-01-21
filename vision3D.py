@@ -69,7 +69,7 @@ class Vision3DRadioButton(QWidget):
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
     changeParamSignal = pyqtSignal(str, str, object) # object may be int, double, ...
-    lock = threading.Lock()
+    calibratedThreadsLock = threading.Lock()
     calibratedThreads = 0
 
     def __init__(self, args):
@@ -249,9 +249,9 @@ class Vision3D(QWidget):
     @pyqtSlot(int, bool)
     def calibrationDone(self, vidID, hasROI):
         # Update calibrated thread status.
-        self.lock.acquire()
+        self.calibratedThreadsLock.acquire()
         self.calibratedThreads += vidID
-        self.lock.release()
+        self.calibratedThreadsLock.release()
 
         # Re-enable radio buttons when both threads are calibrated.
         if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
