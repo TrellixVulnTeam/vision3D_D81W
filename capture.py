@@ -36,7 +36,7 @@ def cmdLineArgs():
                         help='define display height')
     args = parser.parse_args()
 
-    return args
+    return vars(args)
 
 class VideoThread(threading.Thread):
     def __init__(self, args):
@@ -97,7 +97,6 @@ def main():
     args = cmdLineArgs()
 
     # Create threads to handle OpenCV video streams.
-    args = vars(args)
     mainThd, strThd = VideoThread(args), None
     if args['videoIDStr']:
         args['videoID'] = args['videoIDStr']
