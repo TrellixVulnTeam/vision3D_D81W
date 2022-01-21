@@ -172,29 +172,38 @@ class VideoThread(QThread):
             distL = distStr
             shapeL = self._stereo['shape']
 
+        # Cut-off: we must have the same number of image points at left/right.
+        obj = self._cal['obj']
+        nbMinImg = min(len(imgL), len(imgR))
+        imgL = imgL[:nbMinImg]
+        imgR = imgR[:nbMinImg]
+        obj = obj[:nbMinImg]
+
         # Calibrate.
         assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
         if self._args['fisheye']:
-            self._calibrateWithFisheyeCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+            self._calibrateWithFisheyeCalibration(obj,
+                                                  imgL, mtxL, newCamMtxL, distL, shapeL,
                                                   imgR, mtxR, newCamMtxR, distR, shapeR)
         else:
             if self._args['CAL']:
-                self._calibrateWithCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
+                self._calibrateWithCalibration(obj,
+                                               imgL, mtxL, newCamMtxL, distL, shapeL,
                                                imgR, mtxR, newCamMtxR, distR, shapeR)
             else:
                 self._calibrateWithoutCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
                                                   imgR, mtxR, newCamMtxR, distR, shapeR)
 
-    def _calibrateWithFisheyeCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
+    def _calibrateWithFisheyeCalibration(self, obj,
+                                         imgL, mtxL, newCamMtxL, distL, shapeL,
+                                         imgR, mtxR, newCamMtxR, distR, shapeR):
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
         flags = 0
         flags |= cv2.fisheye.CALIB_CHECK_COND
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        obj = self._cal['obj']
         shape = self._cal['shape']
-        objExp = np.expand_dims(np.asarray(obj), -2)
-        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(objExp, imgL, imgR,
+        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(obj, imgL, imgR,
                                                                                             newCamMtxL, distL,
                                                                                             newCamMtxR, distR,
                                                                                             shape,
@@ -216,13 +225,14 @@ class VideoThread(QThread):
         self._args['roiCam'] = False # With fisheye calibration, no ROI.
         self._args['stereoMap'] = stereoMap
 
-    def _calibrateWithCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
+    def _calibrateWithCalibration(self, obj,
+                                  imgL, mtxL, newCamMtxL, distL, shapeL,
+                                  imgR, mtxR, newCamMtxR, distR, shapeR):
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
         flags = 0
         flags |= cv2.CALIB_FIX_INTRINSIC
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        obj = self._cal['obj']
         shape = self._cal['shape']
         ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
                                                                                                 newCamMtxL, distL,
@@ -249,7 +259,9 @@ class VideoThread(QThread):
             self._args['roiCam'] = roiCamR
         self._args['stereoMap'] = stereoMap
 
-    def _calibrateWithoutCalibration(self, imgL, mtxL, newCamMtxL, distL, shapeL, imgR, mtxR, newCamMtxR, distR, shapeR):
+    def _calibrateWithoutCalibration(self,
+                                     imgL, mtxL, newCamMtxL, distL, shapeL,
+                                     imgR, mtxR, newCamMtxR, distR, shapeR):
         # Compute fundamental matrix without knowing intrinsic parameters of the cameras and their relative positions.
         imgPtsL = []
         for img in imgL:
