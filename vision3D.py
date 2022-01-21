@@ -316,7 +316,7 @@ if __name__=="__main__":
     # Get command line arguments.
     args = cmdLineArgs()
 
-   # Create Qt application.
+    # Create Qt application.
     app = QApplication(sys.argv)
     v3D = Vision3D(vars(args))
     v3D.show()
