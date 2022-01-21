@@ -55,11 +55,11 @@ def cmdLineArgs():
     args.chessboardY = args.calibration[1]
     args.squareSize = args.calibration[2]
 
-    return args
+    return vars(args)
 
 def getFileID(args):
     # Get file identifier.
-    fileID = '%s%d'%(args.videoType, args.videoID)
+    fileID = '%s%d'%(args['videoType'], args['videoID'])
     return fileID
 
 def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
@@ -126,15 +126,15 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
 
     # Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-    cbX, cbY = args.chessboardX, args.chessboardY
+    cbX, cbY = args['chessboardX'], args['chessboardY']
     objPt = None
-    if args.fisheye:
+    if args['fisheye']:
         objPt = np.zeros((1, cbX*cbY, 3), np.float32) # Caution: dimension for fisheye/standard are not the same.
         objPt[0, :, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
     else:
         objPt = np.zeros((cbX*cbY, 3), np.float32) # Caution: dimension for fisheye/standard are not the same.
         objPt[:, :2] = np.mgrid[0:cbX, 0:cbY].T.reshape(-1, 2)
-    objPt = objPt*args.squareSize # This makes 3D points spaced as they really are on the (physical) chessboard.
+    objPt = objPt*args['squareSize'] # This makes 3D points spaced as they really are on the (physical) chessboard.
 
     # Find the chess board corners
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -212,15 +212,15 @@ def runCalibration(args):
     frames, obj, img, shape = initFrames(args)
     assert len(frames) > 0, 'no frame, no calibration.'
     print('  Calibrating...', flush=True)
-    if args.fisheye:
+    if args['fisheye']:
         mtx, dist = calibrateCameraFisheye(args, obj, img, shape)
         newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
                                                                            np.eye(3), new_size=shape,
-                                                                           fov_scale=args.fovScale,
-                                                                           balance=args.balance)
+                                                                           fov_scale=args['fovScale'],
+                                                                           balance=args['balance'])
     else:
         mtx, dist = calibrateCamera(args, obj, img, shape)
-        alpha = args.alpha
+        alpha = args['alpha']
         newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
 
     return mtx, dist, newCamMtx
@@ -231,13 +231,13 @@ def main():
 
     # Initialise: load frames and calibrate, or, reuse previous calibration.
     mtx, dist, newCamMtx = None, None, None
-    if args.load:
+    if args['load']:
         mtx, dist, newCamMtx = runCalibration(args)
     else:
         mtx, dist, newCamMtx = initCalibration(args)
 
     # Capture video stream.
-    vid = VideoStream(vars(args))
+    vid = VideoStream(args)
     print('Capturing frames...', flush=True)
     while(vid.isOpened()):
         # Get video frame.
@@ -249,7 +249,7 @@ def main():
         print('  FPS %d'%fps, flush=True)
         cv2.imshow('Video raw [q quit]', frame)
         if mtx is not None and dist is not None:
-            if args.fisheye:
+            if args['fisheye']:
                 undFrame = cv2.fisheye.undistortImage(frame, mtx, dist, Knew=newCamMtx)
                 cv2.imshow('Video undistorted [q quit]', undFrame)
             else:
