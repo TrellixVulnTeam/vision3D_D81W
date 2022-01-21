@@ -203,7 +203,14 @@ class VideoThread(QThread):
         flags |= cv2.fisheye.CALIB_CHECK_COND
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         shape = self._cal['shape']
-        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(obj, imgL, imgR,
+        nbImg, _, cbSize, _ = obj.shape
+        imgPtsL = np.zeros((nbImg, 1, cbSize, 2), imgL.dtype) # Resize image points.
+        for idx, img in enumerate(imgL):
+            imgPtsL[idx, 0, :, :] = img[:, 0, :]
+        imgPtsR = np.zeros((nbImg, 1, cbSize, 2), imgR.dtype) # Resize image points.
+        for idx, img in enumerate(imgR):
+            imgPtsR[idx, 0, :, :] = img[:, 0, :]
+        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(obj, imgPtsL, imgPtsR,
                                                                                             newCamMtxL, distL,
                                                                                             newCamMtxR, distR,
                                                                                             shape,
