@@ -309,7 +309,7 @@ def cmdLineArgs():
                         help='use fisheye cameras.')
     args = parser.parse_args()
 
-    return args
+    return vars(args)
 
 # Main program.
 if __name__=="__main__":
@@ -318,6 +318,6 @@ if __name__=="__main__":
 
     # Create Qt application.
     app = QApplication(sys.argv)
-    v3D = Vision3D(vars(args))
+    v3D = Vision3D(args)
     v3D.show()
     sys.exit(app.exec_())
