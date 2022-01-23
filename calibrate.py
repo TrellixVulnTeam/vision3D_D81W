@@ -107,7 +107,7 @@ def calibrateCamera(args, obj, img, shape):
 
     return mtx, dist
 
-def chessboardCalibration(args, frame, obj, img, delay=0):
+def chessboardCalibration(args, frame, obj, img, delay=0, msg='    Calibration:'):
     # Termination criteria.
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
 
@@ -128,23 +128,20 @@ def chessboardCalibration(args, frame, obj, img, delay=0):
 
     # If found, add object points, image points (after refining them)
     nbc = 0 if corners is None else len(corners)
-    print(' Chessboard found %s with %d corners' % (ret, nbc), end='', flush=True)
+    print('%s chessboard found %s (%d corners)' % (msg, ret, nbc), flush=True)
     ret = ret and (nbc == cbX*cbY) # Check all chessboard corners have been found.
     if ret == True:
         # Draw and display the corners
-        print(': keep', flush=True)
         cornersSP = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         frameWCC = frame.copy()
         cv2.drawChessboardCorners(frameWCC, (cbX, cbY), cornersSP, ret)
-        cv2.imshow('Captured frame with found chessboard corners', frameWCC)
+        cv2.imshow(msg.strip() + ' chessboard and corners', frameWCC)
         cv2.waitKey(delay)
         cv2.destroyAllWindows()
 
         # Add corners.
         obj.append(objPt)
         img.append(cornersSP) # Keep corners found with sub pixels.
-    else:
-        print(': drop', flush=True)
 
     return ret
 
@@ -157,7 +154,7 @@ def initFrames(args):
     print('Loading frames...', flush=True)
     fileID = getFileID(args)
     for fname in sorted(glob.glob(fileID + '-*.jpg')):
-        print('  Loading %s...' % fname, end='', flush=True)
+        print('  Loading %s...' % fname, flush=True)
         frame = cv2.imread(fname)
         height, width, channel = frame.shape # Numpy shapes are height / width / channel.
         shape = (width, height) # OpenCV shapes are width / height.

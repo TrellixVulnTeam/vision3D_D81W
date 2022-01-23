@@ -6,8 +6,11 @@ import sys
 import argparse
 import threading
 from videoStream import VideoStream, cmdLineArgsVideoStream
-from calibrate import cmdLineArgsCalibrate
+from calibrate import cmdLineArgsCalibrate, chessboardCalibration
 import cv2
+
+# Synchronisation barrier.
+sync = None
 
 def cmdLineArgs():
     # Create parser.
@@ -62,13 +65,24 @@ class CaptureThread(threading.Thread):
         cv2.destroyAllWindows()
 
     def onSave(self):
-        # Save frame.
+        # Check VISUALLY if chessboards are PROPERLY found on BOTH frames: MANDATORY for correct stereo calibration.
         self._saveLock.acquire()
         vidID = self._args['videoID']
-        print('stream%02d: saving frame %02d...'%(vidID, self._idxFrame), flush=True)
-        fileID = '%s%d'%(self._args['videoType'], self._args['videoID'])
-        cv2.imwrite(fileID + '-%02d.jpg'%self._idxFrame, self._frame)
-        self._idxFrame += 1
+        print('stream%02d: looking for chessboard...'%vidID, flush=True)
+        obj, img = [], []
+        ret = chessboardCalibration(self._args, self._frame, obj, img, msg='stream%02d:'%vidID)
+        sync.wait() # Wait for all chessboards (from all threads) to be checked.
+        if ret:
+            key = None
+            while key != 'y' and key != 'n':
+                key = input('stream%02d: keep? [y/n] '%vidID)
+            sync.wait() # Wait for all answers (from all threads): keep? drop?
+            if key == 'y':
+                # Save frame.
+                print('stream%02d: saving frame %02d...'%(vidID, self._idxFrame), flush=True)
+                fileID = '%s%d'%(self._args['videoType'], self._args['videoID'])
+                cv2.imwrite(fileID + '-%02d.jpg'%self._idxFrame, self._frame)
+                self._idxFrame += 1
         self._saveFrame = False
         self._saveLock.release()
 
@@ -89,6 +103,11 @@ def main():
     if args['videoIDRight']:
         args['videoID'] = args['videoIDRight']
         strThd = CaptureThread(args.copy())
+
+    # Create barrier to get threads to do things step-by-step.
+    nbThreads = 2 if strThd is not None else 1
+    global sync
+    sync = threading.Barrier(nbThreads)
 
     # Create connection between threads.
     if strThd is not None: # Both threads must take the same picture at the same time.
