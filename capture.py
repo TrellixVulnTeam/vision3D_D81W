@@ -18,6 +18,8 @@ def cmdLineArgs():
     parser = argparse.ArgumentParser(description=dscr)
     cmdLineArgsVideoStream(parser, strRightReq=False)
     cmdLineArgsCalibrate(parser)
+    parser.add_argument('--startIdx', type=int, default=0, metavar='I',
+                        help='define start capture index')
     args = parser.parse_args()
 
     # Convert calibration parameters.
@@ -33,7 +35,7 @@ class CaptureThread(threading.Thread):
         super().__init__()
         self._args = args.copy()
         self._frame = None
-        self._idxFrame = 0
+        self._idxFrame = self._args['startIdx']
         self._saveLock = threading.Lock()
         self._saveFrame = False
         self.otherThd = None
