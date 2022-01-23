@@ -199,7 +199,7 @@ class VideoThread(QThread):
                                          imgR, mtxR, newCamMtxR, distR, shapeR):
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
-        flags = cv2.fisheye.CALIB_CHECK_COND + cv2.fisheye.CALIB_FIX_SKEW
+        flags = cv2.fisheye.CALIB_FIX_SKEW # Do NOT use cv2.fisheye.CALIB_CHECK_COND.
         flags += cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC # Caution: imperative for good results.
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         shape = self._cal['shape']

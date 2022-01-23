@@ -63,7 +63,7 @@ def calibrateCameraFisheye(args, obj, img, shape):
     # Fisheye camera calibration.
     mtx = np.zeros((3, 3))
     dist = np.zeros((4, 1))
-    flags = cv2.fisheye.CALIB_CHECK_COND + cv2.fisheye.CALIB_FIX_SKEW
+    flags = cv2.fisheye.CALIB_FIX_SKEW # Do NOT use cv2.fisheye.CALIB_CHECK_COND.
     flags += cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC # Caution: imperative for good results.
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
     ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(obj, img, shape, mtx, dist,
