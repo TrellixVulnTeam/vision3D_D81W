@@ -306,10 +306,7 @@ class VideoThread(QThread):
             if self._args['DBG']:
                 msg = 'stream%02d-run'%self._args['videoID']
                 msg += ', FPS %02d'%fps
-                msg += ', mode %s'%self._args['mode']
-                msg += ', alpha %.3f'%self._args['alpha']
-                msg += ', CAL %s'%self._args['CAL']
-                msg += ', ROI %s'%self._args['ROI']
+                msg += self._generateMessage()
                 logger.debug(msg)
 
             # Take actions.
@@ -363,11 +360,22 @@ class VideoThread(QThread):
         self._calibrate()
         stop = time.time()
         msg = 'stream%02d-cal'%self._args['videoID']
-        msg += ', mode %s'%self._args['mode']
-        msg += ', alpha %.3f s'%self._args['alpha']
-        msg += ', CAL %s'%self._args['CAL']
+        msg += self._generateMessage()
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False
         hasROI = False if self._args['roiCam'] is False else True
         self.calibrationDoneSignal.emit(self._args['videoID'], hasROI)
+
+    def _generateMessage(self):
+        # Generate message from options.
+        msg = ', mode %s'%self._args['mode']
+        if self._args['fisheye']:
+            msg += ', fovScale %.3f'%self._args['fovScale']
+            msg += ', balance %.3f'%self._args['balance']
+        else:
+            msg += ', alpha %.3f'%self._args['alpha']
+            msg += ', CAL %s'%self._args['CAL']
+        msg += ', ROI %s'%self._args['ROI']
+
+        return msg
