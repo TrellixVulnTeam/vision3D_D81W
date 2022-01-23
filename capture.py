@@ -74,17 +74,19 @@ class CaptureThread(threading.Thread):
         obj, img = [], []
         ret = chessboardCalibration(self._args, self._frame, obj, img, msg='stream%02d:'%vidID)
         sync.wait() # Wait for all chessboards (from all threads) to be checked.
+
+        # Wait to know if chessboard corners are found properly.
+        key = None
         if ret:
-            key = None
             while key != 'y' and key != 'n':
                 key = input('stream%02d: keep? [y/n] '%vidID)
-            sync.wait() # Wait for all answers (from all threads): keep? drop?
-            if key == 'y':
-                # Save frame.
-                print('stream%02d: saving frame %02d...'%(vidID, self._idxFrame), flush=True)
-                fileID = '%s%d'%(self._args['videoType'], self._args['videoID'])
-                cv2.imwrite(fileID + '-%02d.jpg'%self._idxFrame, self._frame)
-                self._idxFrame += 1
+        sync.wait() # Wait for all answers (from all threads): keep? drop?
+        if key == 'y':
+            # Save frame.
+            print('stream%02d: saving frame %02d...'%(vidID, self._idxFrame), flush=True)
+            fileID = '%s%d'%(self._args['videoType'], self._args['videoID'])
+            cv2.imwrite(fileID + '-%02d.jpg'%self._idxFrame, self._frame)
+            self._idxFrame += 1
         self._saveFrame = False
         self._saveLock.release()
 
