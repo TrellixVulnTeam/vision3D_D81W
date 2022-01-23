@@ -5,40 +5,26 @@
 import sys
 import argparse
 import threading
-from videoStream import VideoStream
+from videoStream import VideoStream, cmdLineArgsVideoStream
+from calibrate import cmdLineArgsCalibrate
 import cv2
 
 def cmdLineArgs():
     # Create parser.
     dscr = 'script designed to capture frames from video stream for later calibration.'
     parser = argparse.ArgumentParser(description=dscr)
-    parser.add_argument('--hardware', type=str, required=True, metavar='HW',
-                        choices=['arm-jetson', 'arm-nanopc', 'x86'],
-                        help='select hardware to run on')
-    parser.add_argument('--videoID', type=int, required=True, metavar='ID',
-                        help='select main video stream to capture')
-    parser.add_argument('--videoIDStr', type=int, default=False, metavar='ID',
-                        help='select stereo video stream to capture')
-    parser.add_argument('--videoType', type=str, default='CSI', metavar='T',
-                        choices=['CSI', 'USB'],
-                        help='select video type')
-    parser.add_argument('--videoCapWidth', type=int, default=640, metavar='W',
-                        help='define capture width')
-    parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
-                        help='define capture height')
-    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
-                        help='define capture frame rate')
-    parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
-                        help='define flip method')
-    parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',
-                        help='define display width')
-    parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
-                        help='define display height')
+    cmdLineArgsVideoStream(parser, strRightReq=False)
+    cmdLineArgsCalibrate(parser)
     args = parser.parse_args()
+
+    # Convert calibration parameters.
+    args.chessboardX = args.chessboard[0]
+    args.chessboardY = args.chessboard[1]
+    args.squareSize = args.chessboard[2]
 
     return vars(args)
 
-class VideoThread(threading.Thread):
+class CaptureThread(threading.Thread):
     def __init__(self, args):
         # Initialise.
         super().__init__()
@@ -97,10 +83,12 @@ def main():
     args = cmdLineArgs()
 
     # Create threads to handle OpenCV video streams.
-    mainThd, strThd = VideoThread(args), None
-    if args['videoIDStr']:
-        args['videoID'] = args['videoIDStr']
-        strThd = VideoThread(args)
+    args['videoID'] = args['videoIDLeft']
+    mainThd = CaptureThread(args.copy())
+    strThd = None
+    if args['videoIDRight']:
+        args['videoID'] = args['videoIDRight']
+        strThd = CaptureThread(args.copy())
 
     # Create connection between threads.
     if strThd is not None: # Both threads must take the same picture at the same time.

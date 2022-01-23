@@ -4,6 +4,36 @@
 # Imports.
 import time
 import cv2
+import argparse
+
+def cmdLineArgsVideoStream(parser, stereo=True, strLeftReq=True, strRightReq=True):
+    # Add parser command options related to the video stream.
+    if stereo:
+        parser.add_argument('--videoIDLeft', type=int, required=strLeftReq, metavar='ID',
+                            help='select left video stream to capture')
+        parser.add_argument('--videoIDRight', type=int, required=strRightReq, metavar='ID',
+                            help='select right video stream to capture')
+    else:
+        parser.add_argument('--videoID', type=int, required=True, metavar='ID',
+                            help='select video stream to capture')
+    parser.add_argument('--hardware', type=str, required=True, metavar='HW',
+                        choices=['arm-jetson', 'arm-nanopc', 'x86'],
+                        help='select hardware to run on')
+    parser.add_argument('--videoType', type=str, default='CSI', metavar='T',
+                        choices=['CSI', 'USB'],
+                        help='select video type')
+    parser.add_argument('--videoCapWidth', type=int, default=640, metavar='W',
+                        help='define capture width')
+    parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
+                        help='define capture height')
+    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
+                        help='define capture frame rate')
+    parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
+                        help='define flip method')
+    parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',
+                        help='define display width')
+    parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
+                        help='define display height')
 
 class VideoStream():
     # Handle a video capture stream.

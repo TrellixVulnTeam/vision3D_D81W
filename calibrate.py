@@ -5,55 +5,41 @@
 import sys
 import os
 import argparse
-from videoStream import VideoStream
+from videoStream import VideoStream, cmdLineArgsVideoStream
 import cv2
 import numpy as np
 import h5py
 import glob
 
+def cmdLineArgsCalibrate(parser, addChessboard=True):
+    # Add parser command options related to calibration.
+    if addChessboard:
+        parser.add_argument('--chessboard', type=int, nargs=3, metavar=('CX', 'CY', 'SS'),
+                            default=[7, 10, 25],
+                            help='chessboard: size (CX, CY), SS square size (mm)')
+    parser.add_argument('--fisheye', dest='fisheye', action='store_true',
+                        help='use fisheye cameras (or standard camera otherwise).')
+    parser.add_argument('--alpha', type=float, default=0., metavar='A',
+                        help='free scaling parameter (standard camera).')
+    parser.add_argument('--fovScale', type=float, default=1., metavar='F',
+                        help='FOV (fisheye camera).')
+    parser.add_argument('--balance', type=float, default=0., metavar='B',
+                        help='balance (fisheye camera).')
+
 def cmdLineArgs():
     # Create parser.
     dscr = 'script designed to calibrate video streams from captured frames.'
     parser = argparse.ArgumentParser(description=dscr)
-    parser.add_argument('--hardware', type=str, required=True, metavar='HW',
-                        choices=['arm-jetson', 'arm-nanopc', 'x86'],
-                        help='select hardware to run on')
-    parser.add_argument('--videoID', type=int, required=True, metavar='ID',
-                        help='select video stream to capture')
-    parser.add_argument('--videoType', type=str, default='CSI', metavar='T',
-                        choices=['CSI', 'USB'],
-                        help='select video type')
-    parser.add_argument('--videoCapWidth', type=int, default=640, metavar='W',
-                        help='define capture width')
-    parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
-                        help='define capture height')
-    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
-                        help='define capture frame rate')
-    parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
-                        help='define flip method')
-    parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',
-                        help='define display width')
-    parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
-                        help='define display height')
-    parser.add_argument('--calibration', type=int, nargs=3, metavar=('CX', 'CY', 'SS'),
-                        default=[7, 10, 25],
-                        help='calibration: chessboard size (CX, CY), SS square size (mm)')
-    parser.add_argument('--calibration-load-frames', dest='load', action='store_true',
+    cmdLineArgsVideoStream(parser, stereo=False)
+    parser.add_argument('--load-frames', dest='load', action='store_true',
                         help='load frames necessary for calibration.')
-    parser.add_argument('--alpha', type=float, default=0., metavar='A',
-                        help='free scaling parameter used to compute camera matrix.')
-    parser.add_argument('--fisheye', dest='fisheye', action='store_true',
-                        help='use fisheye cameras.')
-    parser.add_argument('--fovScale', type=float, default=1., metavar='F',
-                        help='FOV used to compute fisheye camera matrix.')
-    parser.add_argument('--balance', type=float, default=0., metavar='F',
-                        help='balance used to compute fisheye camera matrix.')
+    cmdLineArgsCalibrate(parser)
     args = parser.parse_args()
 
     # Convert calibration parameters.
-    args.chessboardX = args.calibration[0]
-    args.chessboardY = args.calibration[1]
-    args.squareSize = args.calibration[2]
+    args.chessboardX = args.chessboard[0]
+    args.chessboardY = args.chessboard[1]
+    args.squareSize = args.chessboard[2]
 
     return vars(args)
 

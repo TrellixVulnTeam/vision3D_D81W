@@ -12,6 +12,8 @@ from videoThread import VideoThread
 import cv2
 import numpy as np
 import threading
+from videoStream import cmdLineArgsVideoStream
+from calibrate import cmdLineArgsCalibrate
 
 class Vision3DEdit(QWidget):
     def __init__(self, param, objType, parent=None):
@@ -79,9 +81,6 @@ class Vision3D(QWidget):
 
         # Create parameters.
         self._args = args.copy()
-        self._args['alpha'] = 0.
-        self._args['fovScale'] = 1.
-        self._args['balance'] = 0.
         self._args['CAL'] = False
         self._args['ROI'] = False
         self._args['DBG'] = False
@@ -283,30 +282,8 @@ def cmdLineArgs():
     # Create parser.
     dscr = 'script designed for 3D vision.'
     parser = argparse.ArgumentParser(description=dscr)
-    parser.add_argument('--hardware', type=str, required=True, metavar='HW',
-                        choices=['arm-jetson', 'arm-nanopc', 'x86'],
-                        help='select hardware to run on')
-    parser.add_argument('--videoIDLeft', type=int, required=True, metavar='ID',
-                        help='select left video stream to capture')
-    parser.add_argument('--videoIDRight', type=int, required=True, metavar='ID',
-                        help='select right video stream to capture')
-    parser.add_argument('--videoType', type=str, default='CSI', metavar='T',
-                        choices=['CSI', 'USB'],
-                        help='select video type')
-    parser.add_argument('--videoCapWidth', type=int, default=640, metavar='W',
-                        help='define capture width')
-    parser.add_argument('--videoCapHeight', type=int, default=360, metavar='H',
-                        help='define capture height')
-    parser.add_argument('--videoCapFrameRate', type=int, default=30, metavar='FR',
-                        help='define capture frame rate')
-    parser.add_argument('--videoFlipMethod', type=int, default=0, metavar='FM',
-                        help='define flip method')
-    parser.add_argument('--videoDspWidth', type=int, default=640, metavar='W',
-                        help='define display width')
-    parser.add_argument('--videoDspHeight', type=int, default=360, metavar='H',
-                        help='define display height')
-    parser.add_argument('--fisheye', dest='fisheye', action='store_true',
-                        help='use fisheye cameras.')
+    cmdLineArgsVideoStream(parser)
+    cmdLineArgsCalibrate(parser, addChessboard=False)
     args = parser.parse_args()
 
     return vars(args)
