@@ -218,9 +218,11 @@ class VideoThread(QThread):
                                                                                             flags=flags)
 
         # Stereo rectification based on calibration.
+        flags = 0
         rectL, rectR, prjCamMtxL, prjCamMtxR, matQ = cv2.fisheye.stereoRectify(newCamMtxL, distL,
                                                                                newCamMtxR, distR,
                                                                                shape, rot, trans,
+                                                                               flags,
                                                                                fov_scale=self._args['fovScale'],
                                                                                balance=self._args['balance'],
                                                                                newImageSize=shape)
