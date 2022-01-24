@@ -2,7 +2,5 @@ __pycache__
 *.h5
 *.jpg
 coco.names
-yolov3.cfg
-yolov3.weights
-MobileNetSSD_deploy.caffemodel
-MobileNetSSD_deploy.prototxt
+yolo*
+models_VGGNet_coco_SSD*

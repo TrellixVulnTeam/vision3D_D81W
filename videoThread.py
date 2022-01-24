@@ -426,7 +426,7 @@ class VideoThread(QThread):
         colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
 
         # Load our YOLO object detector trained on COCO dataset (80 classes).
-        net = cv2.dnn.readNetFromDarknet('yolov3.cfg', 'yolov3.weights')
+        net = cv2.dnn.readNetFromDarknet('yolov3-tiny.cfg', 'yolov3-tiny.weights')
 
         # Determine only the *output* layer names that we need.
         ln = net.getLayerNames()
@@ -439,19 +439,19 @@ class VideoThread(QThread):
         self._detect['YOLO']['ln'] = ln
 
     def _setupSSD(self):
-        # Load the class labels our SSD model was trained on.
-        labels = ['background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',  'car', 'cat', 'chair']
-        labels += ['cow', 'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa']
-        labels += ['train', 'tvmonitor']
+        # Load the COCO class labels our YOLO model was trained on.
+        labels = open('coco.names').read().strip().split("\n")
 
         # Initialize a list of colors to represent each possible class label.
         np.random.seed(42)
         colors = np.random.uniform(0, 255, size=(len(labels), 3))
 
         # Load our SSD object detector.
-        protoTxt = 'MobileNetSSD_deploy.prototxt'
-        model = 'MobileNetSSD_deploy.caffemodel'
-        net = cv2.dnn.readNetFromCaffe(protoTxt, model)
+        protoTxt = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
+                                'coco', 'SSD_512x512', 'deploy.prototxt')
+        caffemodel = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
+                                  'coco', 'SSD_512x512', 'VGG_coco_SSD_512x512_iter_360000.caffemodel')
+        net = cv2.dnn.readNetFromCaffe(protoTxt, caffemodel)
 
         # Determine only the *output* layer names that we need.
         ln = net.getLayerNames()

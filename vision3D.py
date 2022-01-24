@@ -5,6 +5,8 @@
 import sys
 import os
 import wget
+from google_drive_downloader import GoogleDriveDownloader as gdd
+import tarfile
 import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton
@@ -178,29 +180,32 @@ class Vision3D(QWidget):
         grdLay.addWidget(self.imgLblRight, 2, 1)
         self.setLayout(grdLay)
 
-        # Download YOLO files.
-        if not os.path.isfile('yolov3.weights'):
-            wget.download('https://pjreddie.com/media/files/yolov3.weights')
-        else:
-            logger.info('[vision3D] yolov3.weights has already been downloaded.')
-        if not os.path.isfile('yolov3.cfg'):
-            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg')
-        else:
-            logger.info('[vision3D] yolov3.cfg has already been downloaded.')
+        # Download COCO dataset labels.
         if not os.path.isfile('coco.names'):
             wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
         else:
             logger.info('[vision3D] coco.names has already been downloaded.')
 
-        # Download SSD files.
-        if not os.path.isfile('MobileNetSSD_deploy.caffemodel'):
-            wget.download('https://github.com/C-Aniruddh/realtime_object_recognition/raw/master/MobileNetSSD_deploy.caffemodel')
+        # Download YOLO files.
+        if not os.path.isfile('yolov3-tiny.weights'):
+            wget.download('https://pjreddie.com/media/files/yolov3-tiny.weights')
         else:
-            logger.info('[vision3D] MobileNetSSD_deploy.caffemodel has already been downloaded.')
-        if not os.path.isfile('MobileNetSSD_deploy.prototxt'):
-            wget.download('https://raw.githubusercontent.com/chuanqi305/MobileNet-SSD/master/voc/MobileNetSSD_deploy.prototxt')
+            logger.info('[vision3D] yolov3-tiny.weights has already been downloaded.')
+        if not os.path.isfile('yolov3-tiny.cfg'):
+            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg')
         else:
-            logger.info('[vision3D] MobileNetSSD_deploy.prototxt has already been downloaded.')
+            logger.info('[vision3D] yolov3-tiny.cfg has already been downloaded.')
+
+        # Download Model COCO SSD512 file: https://github.com/weiliu89/caffe/tree/ssd (fork from BVLC/caffe).
+        if not os.path.isfile('models_VGGNet_coco_SSD_512x512.tar.gz'):
+            gdd.download_file_from_google_drive(file_id='0BzKzrI_SkD1_dlJpZHJzOXd3MTg',
+                                                dest_path='./models_VGGNet_coco_SSD_512x512.tar.gz',
+                                                showsize=True, unzip=False)
+            tgz = tarfile.open('models_VGGNet_coco_SSD_512x512.tar.gz')
+            tgz.extractall('./models_VGGNet_coco_SSD_512x512')
+            tgz.close()
+        else:
+            logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
 
         # Start threads.
         videoIDLeft = args['videoIDLeft']
