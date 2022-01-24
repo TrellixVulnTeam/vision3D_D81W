@@ -412,6 +412,8 @@ class VideoThread(QThread):
             msg += ', nms %.3f'%self._args['nms']
             if 'detectionTime' in self._args:
                 msg += ', detection time %.3f'%self._args['detectionTime']
+            if 'detectionHits' in self._args:
+                msg += ', detection hits %d'%self._args['detectionHits']
 
         return msg
 
@@ -503,11 +505,13 @@ class VideoThread(QThread):
                     classIDs.append(classID)
 
         # Check if we have detected some objects.
+        self._args['detectionHits'] = len(boxes)
         if len(boxes) == 0:
             return
 
         # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
+        self._args['detectionHits'] = len(idxs)
 
         # Ensure at least one detection exists.
         colors, labels = detect['colors'], detect['labels']
