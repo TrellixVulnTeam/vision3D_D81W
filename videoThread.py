@@ -67,8 +67,8 @@ class VideoThread(QThread):
                 self._stereo[key] = fdh[key][...]
             fdh.close()
         assert len(self._stereo.keys()) > 0, 'camera %d is not calibrated.'%vidIDStr
-        msg = 'stream%02d-ini'%self._args['videoID']
-        msg += ', side %s-%02d (stereo %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
+        msg = '[stream%02d-ini]'%self._args['videoID']
+        msg += ' side %s-%02d (stereo %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
         msg += ', file %s (stereo %s)'%(fname, fnameStr)
         logger.info(msg)
 
@@ -312,8 +312,8 @@ class VideoThread(QThread):
         while self._run and self._vid.isOpened():
             # Debug on demand.
             if self._args['DBG']:
-                msg = 'stream%02d-run'%self._args['videoID']
-                msg += ', FPS %02d'%fps
+                msg = '[stream%02d-run]'%self._args['videoID']
+                msg += ' FPS %02d'%fps
                 msg += self._generateMessage()
                 logger.debug(msg)
 
@@ -374,9 +374,9 @@ class VideoThread(QThread):
         start = time.time()
         self._calibrate()
         stop = time.time()
-        msg = 'stream%02d-cal'%self._args['videoID']
+        msg = '[stream%02d-cal]'%self._args['videoID']
+        msg += ' time %.6f s'%(stop - start)
         msg += self._generateMessage()
-        msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False
         self._emitCalibrationDoneSignal()

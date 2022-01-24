@@ -161,15 +161,15 @@ class Vision3D(QWidget):
         if not os.path.isfile('yolov3.weights'):
             wget.download('https://pjreddie.com/media/files/yolov3.weights')
         else:
-            logger.info('vision3D, yolov3.weights has already been downloaded.')
+            logger.info('[vision3D] yolov3.weights has already been downloaded.')
         if not os.path.isfile('yolov3.cfg'):
             wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg')
         else:
-            logger.info('vision3D, yolov3.cfg has already been downloaded.')
+            logger.info('[vision3D] yolov3.cfg has already been downloaded.')
         if not os.path.isfile('coco.names'):
             wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
         else:
-            logger.info('vision3D, coco.names has already been downloaded.')
+            logger.info('[vision3D] coco.names has already been downloaded.')
 
         # Start threads.
         videoIDLeft = args['videoIDLeft']
