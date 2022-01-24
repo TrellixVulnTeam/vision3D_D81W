@@ -3,6 +3,7 @@
 
 # Imports.
 import sys
+import os
 import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton
@@ -14,6 +15,9 @@ import numpy as np
 import threading
 from videoStream import cmdLineArgsVideoStream
 from calibrate import cmdLineArgsCalibrate
+import logging
+
+logger = logging.getLogger()
 
 class Vision3DEdit(QWidget):
     def __init__(self, param, objType, parent=None):
@@ -79,6 +83,9 @@ class Vision3D(QWidget):
         super().__init__()
         self.setWindowTitle('Vision3D')
 
+        # Set up info/debug log on demand.
+        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
+
         # Create parameters.
         self._args = args.copy()
         self._args['CAL'] = False
@@ -118,7 +125,13 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
                                        enable=True, objType='double', tooltip=tooltip)
         self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 9)
+        self._args['YOLO'] = False
+        self._createChkBoxParameters(grpBoxLay, 'YOLO', 0, 10)
+        self._args['confidence'] = 0.5
+        self._createEditParameters(grpBoxLay, 'confidence', 0, 11, enable=True, objType='double')
+        self._args['nms'] = 0.3
+        self._createEditParameters(grpBoxLay, 'nms', 0, 12, enable=True, objType='double')
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 13)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
@@ -143,6 +156,20 @@ class Vision3D(QWidget):
         grdLay.addWidget(self.imgLblLeft, 2, 0)
         grdLay.addWidget(self.imgLblRight, 2, 1)
         self.setLayout(grdLay)
+
+        # Download YOLO files.
+        if not os.path.isfile('yolov3.weights'):
+            wget.download('https://pjreddie.com/media/files/yolov3.weights')
+        else:
+            logger.info('vision3D, yolov3.weights has already been downloaded.')
+        if not os.path.isfile('yolov3.cfg'):
+            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg')
+        else:
+            logger.info('vision3D, yolov3.cfg has already been downloaded.')
+        if not os.path.isfile('coco.names'):
+            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
+        else:
+            logger.info('vision3D, coco.names has already been downloaded.')
 
         # Start threads.
         videoIDLeft = args['videoIDLeft']
@@ -247,12 +274,9 @@ class Vision3D(QWidget):
 
     @pyqtSlot(int, bool)
     def calibrationDone(self, vidID, hasROI):
-        # Update calibrated thread status.
+        # Re-enable radio buttons when both threads are calibrated.
         self.calibratedThreadsLock.acquire()
         self.calibratedThreads += vidID
-        self.calibratedThreadsLock.release()
-
-        # Re-enable radio buttons when both threads are calibrated.
         if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
             self.calibratedThreads = 0
             self.v3DRdoBtn.rdoBoxRaw.setEnabled(True)
@@ -261,6 +285,7 @@ class Vision3D(QWidget):
             for v3DEdt in self._guiCtrParams:
                 v3DEdt.gui.setEnabled(True)
             self._ckbROI.gui.setEnabled(hasROI)
+        self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
         # Black out frames.

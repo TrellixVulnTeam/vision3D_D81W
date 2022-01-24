@@ -26,7 +26,8 @@ class VideoThread(QThread):
         self._args['videoID'] = vidID
         self._imgLbl = imgLbl
         self._txtLbl = txtLbl
-        self._needCalibration = (None, None)
+        self._needCalibration = False
+        self._args['roiCam'] = False # Initialise ROI (raw mode).
         vision3D.changeParamSignal.connect(self.onParameterChanged)
         self._run = True
         self._vid = VideoStream(self._args)
@@ -71,6 +72,9 @@ class VideoThread(QThread):
         msg += ', file %s (stereo %s)'%(fname, fnameStr)
         logger.info(msg)
 
+        # Set up YOLO.
+        self._setupYOLO()
+
     @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
         # Lots of events may be spawned: check impact is needed.
@@ -104,6 +108,10 @@ class VideoThread(QThread):
             logger.setLevel(logging.DEBUG)
         else:
             logger.setLevel(logging.INFO)
+
+        # Update GUI.
+        if not self._needCalibration:
+            self._emitCalibrationDoneSignal() # Enable GUI (no impact).
 
     def _calibrate(self):
         # Check if calibration is needed:
@@ -346,6 +354,13 @@ class VideoThread(QThread):
                 roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
                 frame = roiFrame # Replace frame with ROI of undistorted frame.
 
+            # Run YOLO on demand.
+            if self._args['YOLO']:
+                start = time.time()
+                self._runYOLODetection(frame)
+                stop = time.time()
+                self._args['YOLO-time'] = stop - start
+
             # Get image back to application.
             self.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
         return fps
@@ -364,6 +379,10 @@ class VideoThread(QThread):
         msg += ', time %.6f s'%(stop - start)
         logger.info(msg)
         self._needCalibration = False
+        self._emitCalibrationDoneSignal()
+
+    def _emitCalibrationDoneSignal(self):
+        # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
         self.calibrationDoneSignal.emit(self._args['videoID'], hasROI)
 
@@ -377,5 +396,90 @@ class VideoThread(QThread):
             msg += ', alpha %.3f'%self._args['alpha']
             msg += ', CAL %s'%self._args['CAL']
         msg += ', ROI %s'%self._args['ROI']
+        msg += ', YOLO %s'%self._args['YOLO']
+        if self._args['YOLO']:
+            msg += ', confidence %.3f'%self._args['confidence']
+            msg += ', nms %.3f'%self._args['nms']
+            if 'YOLO-time' in self._args:
+                msg += ', YOLO-time %.3f'%self._args['YOLO-time']
 
         return msg
+
+    def _setupYOLO(self):
+        # Load the COCO class labels our YOLO model was trained on.
+        labels = open('coco.names').read().strip().split("\n")
+
+        # Initialize a list of colors to represent each possible class label.
+        np.random.seed(42)
+        colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
+
+        # load our YOLO object detector trained on COCO dataset (80 classes)
+        net = cv2.dnn.readNetFromDarknet('yolov3.cfg', 'yolov3.weights')
+        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+        net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+        # Determine only the *output* layer names that we need from YOLO
+        ln = net.getLayerNames()
+        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
+
+        self._yolo = {}
+        self._yolo['colors'] = colors
+        self._yolo['labels'] = labels
+        self._yolo['net'] = net
+        self._yolo['ln'] = ln
+
+    def _runYOLODetection(self, frame):
+        # Construct a blob from the input frame.
+        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+
+        # Perform a forward pass of the YOLO object detector.
+        net, ln = self._yolo['net'], self._yolo['ln']
+        net.setInput(blob)
+        layerOutputs = net.forward(ln)
+
+        # Initialize our lists of detected bounding boxes, confidences, and class IDs.
+        boxes, confidences, classIDs = [], [], []
+
+        # Loop over each of the layer outputs.
+        height, width = frame.shape[:2]
+        for output in layerOutputs:
+            # Loop over each of the detections.
+            for detection in output:
+                # Extract the class ID and confidence (i.e., probability) of the current detection.
+                scores = detection[5:]
+                classID = np.argmax(scores)
+                confidence = scores[classID]
+
+                # Filter out weak predictions by ensuring the detected probability is greater than the minimum probability.
+                if confidence > self._args['confidence']:
+                    # Scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO
+                    # returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height.
+                    box = detection[0:4] * np.array([width, height, width, height])
+                    boxCenterX, boxCenterY, boxWidth, boxHeight = box.astype("int")
+
+                    # Use the center (x, y)-coordinates to derive the top and and left corner of the bounding box.
+                    boxCenterX = int(boxCenterX - (boxWidth / 2))
+                    boxCenterY = int(boxCenterY - (boxHeight / 2))
+
+                    # Update our list of bounding box coordinates, confidences, and class IDs
+                    boxes.append([boxCenterX, boxCenterY, int(boxWidth), int(boxHeight)])
+                    confidences.append(float(confidence))
+                    classIDs.append(classID)
+
+        # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
+        idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
+
+        # Ensure at least one detection exists.
+        colors, labels = self._yolo['colors'], self._yolo['labels']
+        if len(idxs) > 0:
+            # Loop over the indexes we are keeping.
+            for idx in idxs.flatten():
+                # Extract the bounding box coordinates.
+                (boxCenterX, boxCenterY) = (boxes[idx][0], boxes[idx][1])
+                (boxWidth, boxHeight) = (boxes[idx][2], boxes[idx][3])
+
+                # Draw a bounding box rectangle and label on the frame.
+                color = [int(clr) for clr in colors[classIDs[idx]]]
+                cv2.rectangle(frame, (boxCenterX, boxCenterY), (boxCenterX + boxWidth, boxCenterY + boxHeight), color, 2)
+                text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
+                cv2.putText(frame, text, (boxCenterX, boxCenterY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
