@@ -481,6 +481,8 @@ class VideoThread(QThread):
             for detection in output:
                 # Extract the class ID and confidence (i.e., probability) of the current detection.
                 scores = detection[5:]
+                if len(scores) == 0:
+                    continue
                 classID = np.argmax(scores)
                 confidence = scores[classID]
 
@@ -499,6 +501,10 @@ class VideoThread(QThread):
                     boxes.append([boxCenterX, boxCenterY, int(boxWidth), int(boxHeight)])
                     confidences.append(float(confidence))
                     classIDs.append(classID)
+
+        # Check if we have detected some objects.
+        if len(boxes) == 0:
+            return
 
         # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
