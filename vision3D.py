@@ -30,8 +30,7 @@ class Vision3DEdit(QWidget):
 
     def onParameterChanged(self):
         # Callback on parameter change.
-        if self.gui.isEnabled():
-            self._vision3D.disableCalibration()
+        self._vision3D.disableCalibration()
         value = self.gui.text() # Text which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
 
@@ -194,7 +193,7 @@ class Vision3D(QWidget):
             v3DEdt.gui.setValidator(QDoubleValidator())
         val = self._args[param]
         v3DEdt.gui.setText(str(val))
-        v3DEdt.gui.editingFinished.connect(v3DEdt.onParameterChanged)
+        v3DEdt.gui.returnPressed.connect(v3DEdt.onParameterChanged)
         grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
         grpBoxLay.addWidget(v3DEdt.gui, row, 2*col+1, rowSpan, colSpan)
         v3DEdt.gui.setEnabled(enable)
