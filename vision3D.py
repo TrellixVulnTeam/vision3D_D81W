@@ -4,6 +4,7 @@
 # Imports.
 import sys
 import os
+import wget
 import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton
@@ -50,7 +51,7 @@ class Vision3DCheckBox(QWidget):
         value = self.gui.isChecked() # State which has been modified.
         self._vision3D.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
-class Vision3DRadioButton(QWidget):
+class Vision3DRadioButtonMode(QWidget):
     def __init__(self, param, parent=None):
         # Initialise.
         super().__init__(parent)
@@ -60,6 +61,27 @@ class Vision3DRadioButton(QWidget):
         self.rdoBoxUnd.mode = 'und'
         self.rdoBoxStr = QRadioButton('stereo')
         self.rdoBoxStr.mode = 'str'
+        self._param = param # Track associated parameter.
+        self._vision3D = parent
+
+    def onParameterChanged(self):
+        # Callback on parameter change.
+        rdoBtn = self.sender()
+        if rdoBtn.isChecked():
+            self._vision3D.disableCalibration()
+            value = rdoBtn.mode # Mode which has been modified.
+            self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+
+class Vision3DRadioButtonDetection(QWidget):
+    def __init__(self, param, parent=None):
+        # Initialise.
+        super().__init__(parent)
+        self.rdoBoxNone = QRadioButton('None')
+        self.rdoBoxNone.mode = 'None'
+        self.rdoBoxYOLO = QRadioButton('YOLO')
+        self.rdoBoxYOLO.mode = 'YOLO'
+        self.rdoBoxSSD = QRadioButton('SSD')
+        self.rdoBoxSSD.mode = 'SSD'
         self._param = param # Track associated parameter.
         self._vision3D = parent
 
@@ -83,14 +105,10 @@ class Vision3D(QWidget):
         self.setWindowTitle('Vision3D')
 
         # Set up info/debug log on demand.
-        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
         # Create parameters.
         self._args = args.copy()
-        self._args['CAL'] = False
-        self._args['ROI'] = False
-        self._args['DBG'] = False
-        self._args['mode'] = 'raw'
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
@@ -102,7 +120,8 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'videoFlipMethod', 2, 0)
             self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
             self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
-        self._createRdoButParameters(grpBoxLay, 'mode', 0, 6)
+        self._args['mode'] = 'raw'
+        self._createRdoButMode(grpBoxLay, 'mode', 0, 6)
         if self._args['fisheye']:
             tooltip = 'Divisor for new focal length.'
             self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpan=2, colSpan=1,
@@ -112,6 +131,7 @@ class Vision3D(QWidget):
             self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpan=2, colSpan=1,
                                        enable=True, objType='double', tooltip=tooltip)
         else:
+            self._args['CAL'] = False
             self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7, triggerDisable=True)
             tooltip = 'Free scaling parameter between 0 and 1.\n'
             tooltip += '  - 0: rectified images are zoomed and shifted so\n'
@@ -123,14 +143,16 @@ class Vision3D(QWidget):
             tooltip += 'If negative, the function performs the default scaling.'
             self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
                                        enable=True, objType='double', tooltip=tooltip)
+        self._args['ROI'] = False
         self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
-        self._args['YOLO'] = False
-        self._createChkBoxParameters(grpBoxLay, 'YOLO', 0, 10)
+        self._args['detection'] = 'None'
+        self._createRdoButDetection(grpBoxLay, 'detection', 0, 20)
         self._args['confidence'] = 0.5
-        self._createEditParameters(grpBoxLay, 'confidence', 0, 11, enable=True, objType='double')
+        self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
         self._args['nms'] = 0.3
-        self._createEditParameters(grpBoxLay, 'nms', 0, 12, enable=True, objType='double')
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 0, 13)
+        self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
+        self._args['DBG'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBG', 4, 26)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
@@ -169,6 +191,16 @@ class Vision3D(QWidget):
             wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
         else:
             logger.info('[vision3D] coco.names has already been downloaded.')
+
+        # Download SSD files.
+        if not os.path.isfile('MobileNetSSD_deploy.caffemodel'):
+            wget.download('https://github.com/C-Aniruddh/realtime_object_recognition/raw/master/MobileNetSSD_deploy.caffemodel')
+        else:
+            logger.info('[vision3D] MobileNetSSD_deploy.caffemodel has already been downloaded.')
+        if not os.path.isfile('MobileNetSSD_deploy.prototxt'):
+            wget.download('https://raw.githubusercontent.com/chuanqi305/MobileNet-SSD/master/voc/MobileNetSSD_deploy.prototxt')
+        else:
+            logger.info('[vision3D] MobileNetSSD_deploy.prototxt has already been downloaded.')
 
         # Start threads.
         videoIDLeft = args['videoIDLeft']
@@ -214,20 +246,35 @@ class Vision3D(QWidget):
         self._guiCtrParams.append(v3DChkBox) # Enabled checkbox may have controls.
         return v3DChkBox
 
-    def _createRdoButParameters(self, grpBoxLay, param, row, col):
+    def _createRdoButMode(self, grpBoxLay, param, row, col):
         # Create one parameter.
         lbl = QLabel(param)
-        self.v3DRdoBtn = Vision3DRadioButton(param, parent=self)
-        self.v3DRdoBtn.rdoBoxRaw.setChecked(True)
-        self.v3DRdoBtn.rdoBoxUnd.setChecked(False)
-        self.v3DRdoBtn.rdoBoxStr.setChecked(False)
-        self.v3DRdoBtn.rdoBoxRaw.toggled.connect(self.v3DRdoBtn.onParameterChanged)
-        self.v3DRdoBtn.rdoBoxUnd.toggled.connect(self.v3DRdoBtn.onParameterChanged)
-        self.v3DRdoBtn.rdoBoxStr.toggled.connect(self.v3DRdoBtn.onParameterChanged)
+        self.v3DRdoBtnMode = Vision3DRadioButtonMode(param, parent=self)
+        self.v3DRdoBtnMode.rdoBoxRaw.setChecked(True)
+        self.v3DRdoBtnMode.rdoBoxUnd.setChecked(False)
+        self.v3DRdoBtnMode.rdoBoxStr.setChecked(False)
+        self.v3DRdoBtnMode.rdoBoxRaw.toggled.connect(self.v3DRdoBtnMode.onParameterChanged)
+        self.v3DRdoBtnMode.rdoBoxUnd.toggled.connect(self.v3DRdoBtnMode.onParameterChanged)
+        self.v3DRdoBtnMode.rdoBoxStr.toggled.connect(self.v3DRdoBtnMode.onParameterChanged)
         grpBoxLay.addWidget(lbl, row+0, col)
-        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxRaw, row+1, col)
-        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxUnd, row+2, col)
-        grpBoxLay.addWidget(self.v3DRdoBtn.rdoBoxStr, row+3, col)
+        grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxRaw, row+1, col)
+        grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxUnd, row+2, col)
+        grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxStr, row+3, col)
+
+    def _createRdoButDetection(self, grpBoxLay, param, row, col):
+        # Create one parameter.
+        lbl = QLabel(param)
+        self.v3DRdoBtnDetect = Vision3DRadioButtonDetection(param, parent=self)
+        self.v3DRdoBtnDetect.rdoBoxNone.setChecked(True)
+        self.v3DRdoBtnDetect.rdoBoxYOLO.setChecked(False)
+        self.v3DRdoBtnDetect.rdoBoxSSD.setChecked(False)
+        self.v3DRdoBtnDetect.rdoBoxNone.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
+        self.v3DRdoBtnDetect.rdoBoxYOLO.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
+        self.v3DRdoBtnDetect.rdoBoxSSD.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
+        grpBoxLay.addWidget(lbl, row, col+0)
+        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxNone, row, col+1)
+        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxYOLO, row, col+2)
+        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxSSD, row, col+3)
 
     def _getFrameSize(self):
         # Get frame size.
@@ -278,9 +325,12 @@ class Vision3D(QWidget):
         self.calibratedThreads += vidID
         if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
             self.calibratedThreads = 0
-            self.v3DRdoBtn.rdoBoxRaw.setEnabled(True)
-            self.v3DRdoBtn.rdoBoxUnd.setEnabled(True)
-            self.v3DRdoBtn.rdoBoxStr.setEnabled(True)
+            self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(True)
+            self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(True)
+            self.v3DRdoBtnMode.rdoBoxStr.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(True)
             for v3DEdt in self._guiCtrParams:
                 v3DEdt.gui.setEnabled(True)
             self._ckbROI.gui.setEnabled(hasROI)
@@ -295,9 +345,12 @@ class Vision3D(QWidget):
         self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
 
         # Disable access to calibration parameters to prevent thread overflow.
-        self.v3DRdoBtn.rdoBoxRaw.setEnabled(False)
-        self.v3DRdoBtn.rdoBoxUnd.setEnabled(False)
-        self.v3DRdoBtn.rdoBoxStr.setEnabled(False)
+        self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
+        self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
+        self.v3DRdoBtnMode.rdoBoxStr.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(False)
         for v3DEdt in self._guiCtrParams:
             v3DEdt.gui.setEnabled(False)
         self._ckbROI.gui.setEnabled(False)

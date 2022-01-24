@@ -46,7 +46,7 @@ class VideoThread(QThread):
         assert len(self._cal.keys()) > 0, 'camera %d is not calibrated.'%vidID
 
         # Set up info/debug log on demand.
-        logging.basicConfig(format='%(asctime)s: %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
         # Get camera calibration parameters from the other camera (for stereo).
         self._stereo, vidIDStr = {}, None
@@ -72,8 +72,18 @@ class VideoThread(QThread):
         msg += ', file %s (stereo %s)'%(fname, fnameStr)
         logger.info(msg)
 
-        # Set up YOLO.
+        # Set up detection.
+        self._detect = {'YOLO': {}, 'SSD': {}}
         self._setupYOLO()
+        self._setupSSD()
+        for key in self._detect:
+            net = self._detect[key]['net']
+            if self._args['hardware'] == 'arm-jetson':
+                net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+                net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+            else:
+                net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
+                net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
     @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
@@ -354,12 +364,12 @@ class VideoThread(QThread):
                 roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
                 frame = roiFrame # Replace frame with ROI of undistorted frame.
 
-            # Run YOLO on demand.
-            if self._args['YOLO']:
+            # Run detection on demand.
+            if self._args['detection'] != 'None':
                 start = time.time()
-                self._runYOLODetection(frame)
+                self._runDetection(frame)
                 stop = time.time()
-                self._args['YOLO-time'] = stop - start
+                self._args['detectionTime'] = stop - start
 
             # Get image back to application.
             self.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
@@ -396,12 +406,12 @@ class VideoThread(QThread):
             msg += ', alpha %.3f'%self._args['alpha']
             msg += ', CAL %s'%self._args['CAL']
         msg += ', ROI %s'%self._args['ROI']
-        msg += ', YOLO %s'%self._args['YOLO']
-        if self._args['YOLO']:
+        msg += ', detection %4s'%self._args['detection']
+        if self._args['detection'] != 'None':
             msg += ', confidence %.3f'%self._args['confidence']
             msg += ', nms %.3f'%self._args['nms']
-            if 'YOLO-time' in self._args:
-                msg += ', YOLO-time %.3f'%self._args['YOLO-time']
+            if 'detectionTime' in self._args:
+                msg += ', detection time %.3f'%self._args['detectionTime']
 
         return msg
 
@@ -413,27 +423,51 @@ class VideoThread(QThread):
         np.random.seed(42)
         colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
 
-        # load our YOLO object detector trained on COCO dataset (80 classes)
+        # Load our YOLO object detector trained on COCO dataset (80 classes).
         net = cv2.dnn.readNetFromDarknet('yolov3.cfg', 'yolov3.weights')
-        net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-        net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
-        # Determine only the *output* layer names that we need from YOLO
+        # Determine only the *output* layer names that we need.
         ln = net.getLayerNames()
         ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
 
-        self._yolo = {}
-        self._yolo['colors'] = colors
-        self._yolo['labels'] = labels
-        self._yolo['net'] = net
-        self._yolo['ln'] = ln
+        # Remind YOLO setup.
+        self._detect['YOLO']['labels'] = labels
+        self._detect['YOLO']['colors'] = colors
+        self._detect['YOLO']['net'] = net
+        self._detect['YOLO']['ln'] = ln
 
-    def _runYOLODetection(self, frame):
+    def _setupSSD(self):
+        # Load the class labels our SSD model was trained on.
+        labels = ['background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',  'car', 'cat', 'chair']
+        labels += ['cow', 'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa']
+        labels += ['train', 'tvmonitor']
+
+        # Initialize a list of colors to represent each possible class label.
+        np.random.seed(42)
+        colors = np.random.uniform(0, 255, size=(len(labels), 3))
+
+        # Load our SSD object detector.
+        protoTxt = 'MobileNetSSD_deploy.prototxt'
+        model = 'MobileNetSSD_deploy.caffemodel'
+        net = cv2.dnn.readNetFromCaffe(protoTxt, model)
+
+        # Determine only the *output* layer names that we need.
+        ln = net.getLayerNames()
+        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
+
+        # Remind SSD setup.
+        self._detect['SSD']['labels'] = labels
+        self._detect['SSD']['colors'] = colors
+        self._detect['SSD']['net'] = net
+        self._detect['SSD']['ln'] = ln
+
+    def _runDetection(self, frame):
         # Construct a blob from the input frame.
         blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
         # Perform a forward pass of the YOLO object detector.
-        net, ln = self._yolo['net'], self._yolo['ln']
+        detect = self._detect[self._args['detection']]
+        net, ln = detect['net'], detect['ln']
         net.setInput(blob)
         layerOutputs = net.forward(ln)
 
@@ -470,7 +504,7 @@ class VideoThread(QThread):
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
 
         # Ensure at least one detection exists.
-        colors, labels = self._yolo['colors'], self._yolo['labels']
+        colors, labels = detect['colors'], detect['labels']
         if len(idxs) > 0:
             # Loop over the indexes we are keeping.
             for idx in idxs.flatten():
