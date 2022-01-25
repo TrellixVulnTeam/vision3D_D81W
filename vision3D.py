@@ -9,7 +9,7 @@ from google_drive_downloader import GoogleDriveDownloader as gdd
 import tarfile
 import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
-from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton
+from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton, QButtonGroup
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator, QDoubleValidator
 from PyQt5.QtCore import Qt, pyqtSignal, QThreadPool, QObject
 from videoThread import VideoThread
@@ -65,6 +65,11 @@ class Vision3DRadioButtonMode(QWidget):
         self.rdoBoxStr.mode = 'str'
         self._param = param # Track associated parameter.
         self._vision3D = parent
+        grpBtn = QButtonGroup(parent)
+        grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(self.rdoBoxRaw)
+        grpBtn.addButton(self.rdoBoxUnd)
+        grpBtn.addButton(self.rdoBoxStr)
 
     def onParameterChanged(self):
         # Callback on parameter change.
@@ -74,15 +79,6 @@ class Vision3DRadioButtonMode(QWidget):
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
-
-            # Update GUI with correct states checked.
-            rdoBtn.setChecked(True)
-            if self.rdoBoxRaw.text() != rdoBtn.text():
-                self.rdoBoxRaw.setChecked(False)
-            if self.rdoBoxUnd.text() != rdoBtn.text():
-                self.rdoBoxUnd.setChecked(False)
-            if self.rdoBoxStr.text() != rdoBtn.text():
-                self.rdoBoxStr.setChecked(False)
 
 class Vision3DRadioButtonDetection(QWidget):
     def __init__(self, param, parent=None):
@@ -96,6 +92,11 @@ class Vision3DRadioButtonDetection(QWidget):
         self.rdoBoxSSD.mode = 'SSD'
         self._param = param # Track associated parameter.
         self._vision3D = parent
+        grpBtn = QButtonGroup(parent)
+        grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(self.rdoBoxNone)
+        grpBtn.addButton(self.rdoBoxYOLO)
+        grpBtn.addButton(self.rdoBoxSSD)
 
     def onParameterChanged(self):
         # Callback on parameter change.
@@ -105,15 +106,6 @@ class Vision3DRadioButtonDetection(QWidget):
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
-
-            # Update GUI with correct states checked.
-            rdoBtn.setChecked(True)
-            if self.rdoBoxNone.text() != rdoBtn.text():
-                self.rdoBoxNone.setChecked(False)
-            if self.rdoBoxYOLO.text() != rdoBtn.text():
-                self.rdoBoxYOLO.setChecked(False)
-            if self.rdoBoxSSD.text() != rdoBtn.text():
-                self.rdoBoxSSD.setChecked(False)
 
 class Vision3DSignals(QObject):
     # Signals enabling to update threads from application.
