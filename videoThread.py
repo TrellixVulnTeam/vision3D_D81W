@@ -17,8 +17,8 @@ logger = logging.getLogger()
 
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    changePixmapSignal = pyqtSignal(np.ndarray, QLabel, int, QLabel)
-    calibrationDoneSignal = pyqtSignal(int, bool)
+    changePixmap = pyqtSignal(np.ndarray, QLabel, int, QLabel)
+    calibrationDone = pyqtSignal(int, bool)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
     def __init__(self, vidID, args, imgLbl, txtLbl, vision3D):
@@ -30,8 +30,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         self._txtLbl = txtLbl
         self._needCalibration = False
         self._args['roiCam'] = False # Initialise ROI (raw mode).
-        vision3D.signals.changeParamSignal.connect(self.onParameterChanged)
-        vision3D.signals.stopSignal.connect(self.stop)
+        vision3D.signals.changeParam.connect(self.onParameterChanged)
+        vision3D.signals.stop.connect(self.stop)
         self._run = True
         self._vid = VideoStream(self._args)
         self.vidID = vidID
@@ -365,7 +365,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 self._args['detectionTime'] = stop - start
 
             # Get image back to application.
-            self.signals.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
+            self.signals.changePixmap.emit(frame, self._imgLbl, fps, self._txtLbl)
         return fps
 
     def _runCalibration(self):
@@ -387,7 +387,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _emitCalibrationDoneSignal(self):
         # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
-        self.signals.calibrationDoneSignal.emit(self._args['videoID'], hasROI)
+        self.signals.calibrationDone.emit(self._args['videoID'], hasROI)
 
     def _generateMessage(self):
         # Generate message from options.
