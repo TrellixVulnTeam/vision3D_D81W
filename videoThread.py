@@ -123,6 +123,31 @@ class VideoThread(QThread):
         if not self._needCalibration:
             self._emitCalibrationDoneSignal() # Enable GUI (no impact).
 
+    def run(self):
+        # Retrieve constant calibration parameters.
+        mtx, dist, fps = self._cal['mtx'], self._cal['dist'], 0
+
+        # Run thread.
+        while self._run and self._vid.isOpened():
+            # Debug on demand.
+            if self._args['DBG']:
+                msg = '[stream%02d-run]'%self._args['videoID']
+                msg += ' FPS %02d'%fps
+                msg += self._generateMessage()
+                logger.debug(msg)
+
+            # Take actions.
+            if self._needCalibration:
+                self._runCalibration()
+            else:
+                fps = self._runCapture(mtx, dist)
+        self._vid.release()
+
+    def stop(self):
+        # Stop thread.
+        self._run = False
+        self.wait()
+
     def _calibrate(self):
         # Check if calibration is needed:
         if self._args['mode'] == 'raw':
@@ -313,31 +338,6 @@ class VideoThread(QThread):
             stereoMap = cv2.initUndistortRectifyMap(mtxR, distR, rectR, newCamMtxR, shapeR, cv2.CV_16SC2)
         self._args['roiCam'] = False # Without calibration, no ROI.
         self._args['stereoMap'] = stereoMap
-
-    def run(self):
-        # Retrieve constant calibration parameters.
-        mtx, dist, fps = self._cal['mtx'], self._cal['dist'], 0
-
-        # Run thread.
-        while self._run and self._vid.isOpened():
-            # Debug on demand.
-            if self._args['DBG']:
-                msg = '[stream%02d-run]'%self._args['videoID']
-                msg += ' FPS %02d'%fps
-                msg += self._generateMessage()
-                logger.debug(msg)
-
-            # Take actions.
-            if self._needCalibration:
-                self._runCalibration()
-            else:
-                fps = self._runCapture(mtx, dist)
-        self._vid.release()
-
-    def stop(self):
-        # Stop thread.
-        self._run = False
-        self.wait()
 
     def _runCapture(self, mtx, dist):
         # Get frame and process it.

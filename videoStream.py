@@ -56,6 +56,24 @@ class VideoStream():
         self.width = args['videoCapWidth']
         self.height = args['videoCapHeight']
 
+    def isOpened(self):
+        # Delegate to private data member.
+        return self._vid.isOpened()
+
+    def read(self):
+        # Delegate to private data member.
+        frameOK, frame = self._vid.read()
+
+        # Estimate frame per second.
+        self._nbFrames += 1
+        fps = int(self._nbFrames/(time.time() - self._start))
+
+        return frameOK, frame, fps
+
+    def release(self):
+        # Delegate to private data member.
+        self._vid.release()
+
     @staticmethod
     def _gstreamerPipeline(args):
         # Get gstreamer pipeline.
@@ -90,21 +108,3 @@ class VideoStream():
             assert True, 'create video capture KO, unknown video type.'
 
         return cmd
-
-    def isOpened(self):
-        # Delegate to private data member.
-        return self._vid.isOpened()
-
-    def read(self):
-        # Delegate to private data member.
-        frameOK, frame = self._vid.read()
-
-        # Estimate frame per second.
-        self._nbFrames += 1
-        fps = int(self._nbFrames/(time.time() - self._start))
-
-        return frameOK, frame, fps
-
-    def release(self):
-        # Delegate to private data member.
-        self._vid.release()

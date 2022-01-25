@@ -219,6 +219,60 @@ class Vision3D(QWidget):
         self._threadRight.calibrationDoneSignal.connect(self.calibrationDone)
         self._threadRight.start()
 
+    @pyqtSlot(np.ndarray, QLabel, int, QLabel)
+    def updateFrame(self, frame, imgLbl, fps, txtLbl):
+        # Update thread image.
+        qtImg = self._convertCvQt(frame)
+        imgLbl.setPixmap(qtImg)
+
+        # Update thread label.
+        txt = txtLbl.text()
+        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
+        txtLbl.setText(lbl + ' - FPS %d'%fps)
+
+    @pyqtSlot(int, bool)
+    def calibrationDone(self, vidID, hasROI):
+        # Re-enable radio buttons when both threads are calibrated.
+        self.calibratedThreadsLock.acquire()
+        self.calibratedThreads += vidID
+        if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
+            self.calibratedThreads = 0
+            self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(True)
+            self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(True)
+            self.v3DRdoBtnMode.rdoBoxStr.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(True)
+            self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(True)
+            for v3DEdt in self._guiCtrParams:
+                v3DEdt.gui.setEnabled(True)
+            self._ckbROI.gui.setEnabled(hasROI)
+        self.calibratedThreadsLock.release()
+
+    def disableCalibration(self):
+        # Black out frames.
+        displayHeight, displayWidth = self._getFrameSize()
+        shape = (displayHeight, displayWidth)
+        frame = np.ones(shape, np.uint8) # Black image.
+        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
+        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
+
+        # Disable access to calibration parameters to prevent thread overflow.
+        self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
+        self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
+        self.v3DRdoBtnMode.rdoBoxStr.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(False)
+        self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(False)
+        for v3DEdt in self._guiCtrParams:
+            v3DEdt.gui.setEnabled(False)
+        self._ckbROI.gui.setEnabled(False)
+
+    def closeEvent(self, event):
+        # Close application.
+        self._threadLeft.stop()
+        self._threadRight.stop()
+        event.accept()
+
     def _createEditParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1,
                               enable=False, objType='int', tooltip=None):
         # Create one parameter.
@@ -298,67 +352,13 @@ class Vision3D(QWidget):
         self.imgLblLeft.resize(displayWidth, displayHeight)
         self.imgLblRight.resize(displayWidth, displayHeight)
 
-    def closeEvent(self, event):
-        # Close application.
-        self._threadLeft.stop()
-        self._threadRight.stop()
-        event.accept()
-
-    @pyqtSlot(np.ndarray, QLabel, int, QLabel)
-    def updateFrame(self, frame, imgLbl, fps, txtLbl):
-        # Update thread image.
-        qtImg = self.convertCvQt(frame)
-        imgLbl.setPixmap(qtImg)
-
-        # Update thread label.
-        txt = txtLbl.text()
-        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
-        txtLbl.setText(lbl + ' - FPS %d'%fps)
-
-    def convertCvQt(self, frame):
+    def _convertCvQt(self, frame):
         # Convert frame to pixmap.
         rgbImg = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         displayHeight, displayWidth, channel = rgbImg.shape
         bytesPerLine = channel * displayWidth
         qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
         return QPixmap.fromImage(qtImg)
-
-    @pyqtSlot(int, bool)
-    def calibrationDone(self, vidID, hasROI):
-        # Re-enable radio buttons when both threads are calibrated.
-        self.calibratedThreadsLock.acquire()
-        self.calibratedThreads += vidID
-        if self.calibratedThreads == self._threadLeft.vidID + self._threadRight.vidID:
-            self.calibratedThreads = 0
-            self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(True)
-            self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(True)
-            self.v3DRdoBtnMode.rdoBoxStr.setEnabled(True)
-            self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(True)
-            self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(True)
-            self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(True)
-            for v3DEdt in self._guiCtrParams:
-                v3DEdt.gui.setEnabled(True)
-            self._ckbROI.gui.setEnabled(hasROI)
-        self.calibratedThreadsLock.release()
-
-    def disableCalibration(self):
-        # Black out frames.
-        displayHeight, displayWidth = self._getFrameSize()
-        shape = (displayHeight, displayWidth)
-        frame = np.ones(shape, np.uint8) # Black image.
-        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
-        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
-
-        # Disable access to calibration parameters to prevent thread overflow.
-        self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
-        self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
-        self.v3DRdoBtnMode.rdoBoxStr.setEnabled(False)
-        self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(False)
-        self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(False)
-        self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(False)
-        for v3DEdt in self._guiCtrParams:
-            v3DEdt.gui.setEnabled(False)
-        self._ckbROI.gui.setEnabled(False)
 
 def cmdLineArgs():
     # Create parser.
