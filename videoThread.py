@@ -5,6 +5,7 @@
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
 from videoStream import VideoStream
+from calibrate import modifyCameraIntrinsics
 import os
 import h5py
 import cv2
@@ -163,13 +164,7 @@ class VideoThread(QThread):
         alpha = self._args['alpha']
         if alpha >= 0.:
             shape = self._cal['shape']
-            if self._args['fisheye']:
-                newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
-                                                                                   np.eye(3), new_size=shape,
-                                                                                   fov_scale=self._args['fovScale'],
-                                                                                   balance=self._args['balance'])
-            else:
-                newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+            newCamMtx, roiCam = modifyCameraIntrinsics(self._args, mtx, dist, shape)
         self._args['newCamMtx'] = newCamMtx
         self._args['roiCam'] = roiCam
 
@@ -183,13 +178,7 @@ class VideoThread(QThread):
         alpha = self._args['alpha']
         if alpha >= 0.:
             shapeStr = self._stereo['shape']
-            if self._args['fisheye']:
-                newCamMtxStr = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtxStr, distStr, shapeStr,
-                                                                                      np.eye(3), new_size=shapeStr,
-                                                                                      fov_scale=self._args['fovScale'],
-                                                                                      balance=self._args['balance'])
-            else:
-                newCamMtxStr, roiCamStr = cv2.getOptimalNewCameraMatrix(mtxStr, distStr, shapeStr, alpha, shapeStr)
+            newCamMtxStr, roiCamStr = modifyCameraIntrinsics(self._args, mtxStr, distStr, shapeStr)
 
         # Get left/right sides.
         imgL, imgR = None, None

@@ -164,12 +164,26 @@ def initFrames(args):
 
     return frames, obj, img, shape
 
+def modifyCameraIntrinsics(args, mtx, dist, shape):
+    # Modify camera intrinsics according to distortion parameters.
+    newCamMtx, roiCam = None, False
+    if args['fisheye']:
+        newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
+                                                                           np.eye(3), new_size=shape,
+                                                                           fov_scale=args['fovScale'],
+                                                                           balance=args['balance'])
+    else:
+        alpha = args['alpha']
+        newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+
+    return newCamMtx, roiCam
+
 def initCalibration(args):
     # Initialise calibration parameters if available.
     mtx, dist, newCamMtx = None, None, None
     shape = None
     fileID = getFileID(args)
-    calibType = 'fsh' if args.fisheye else 'std'
+    calibType = 'fsh' if args['fisheye'] else 'std'
     fname = '%s-%s.h5'%(fileID, calibType)
     if os.path.isfile(fname):
         fdh = h5py.File(fname, 'r')
@@ -178,33 +192,21 @@ def initCalibration(args):
         shape = fdh['shape'][...]
         fdh.close()
 
-    if args.fisheye:
-        newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
-                                                                           np.eye(3), new_size=shape,
-                                                                           fov_scale=args.fovScale,
-                                                                           balance=args.balance)
-    else:
-        alpha = args.alpha
-        newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+    newCamMtx, roiCam = modifyCameraIntrinsics(args, mtx, dist, shape)
 
     return mtx, dist, newCamMtx
 
 def runCalibration(args):
     # Calibrate camera.
-    mtx, dist, newCamMtx = None, None, None
     frames, obj, img, shape = initFrames(args)
     assert len(frames) > 0, 'no frame, no calibration.'
     print('  Calibrating...', flush=True)
+    mtx, dist = None, None
     if args['fisheye']:
         mtx, dist = calibrateCameraFisheye(args, obj, img, shape)
-        newCamMtx = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(mtx, dist, shape,
-                                                                           np.eye(3), new_size=shape,
-                                                                           fov_scale=args['fovScale'],
-                                                                           balance=args['balance'])
     else:
         mtx, dist = calibrateCamera(args, obj, img, shape)
-        alpha = args['alpha']
-        newCamMtx, roiCam = cv2.getOptimalNewCameraMatrix(mtx, dist, shape, alpha, shape)
+    newCamMtx, roiCam = modifyCameraIntrinsics(args, mtx, dist, shape)
 
     return mtx, dist, newCamMtx
 
