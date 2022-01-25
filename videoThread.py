@@ -73,9 +73,12 @@ class VideoThread(QThread):
         logger.info(msg)
 
         # Set up detection.
+        labels = open('coco.names').read().strip().split("\n") # Load the COCO class labels.
+        np.random.seed(42) # Initialize colors to represent each possible class label.
+        colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
         self._detect = {'YOLO': {}, 'SSD': {}}
-        self._setupYOLO()
-        self._setupSSD()
+        self._setupYOLO(labels, colors)
+        self._setupSSD(labels, colors)
         for key in self._detect:
             net = self._detect[key]['net']
             if self._args['hardware'] == 'arm-jetson':
@@ -417,14 +420,7 @@ class VideoThread(QThread):
 
         return msg
 
-    def _setupYOLO(self):
-        # Load the COCO class labels our YOLO model was trained on.
-        labels = open('coco.names').read().strip().split("\n")
-
-        # Initialize a list of colors to represent each possible class label.
-        np.random.seed(42)
-        colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
-
+    def _setupYOLO(self, labels, colors):
         # Load our YOLO object detector trained on COCO dataset (80 classes).
         net = cv2.dnn.readNetFromDarknet('yolov3-tiny.cfg', 'yolov3-tiny.weights')
 
@@ -438,14 +434,7 @@ class VideoThread(QThread):
         self._detect['YOLO']['net'] = net
         self._detect['YOLO']['ln'] = ln
 
-    def _setupSSD(self):
-        # Load the COCO class labels our YOLO model was trained on.
-        labels = open('coco.names').read().strip().split("\n")
-
-        # Initialize a list of colors to represent each possible class label.
-        np.random.seed(42)
-        colors = np.random.uniform(0, 255, size=(len(labels), 3))
-
+    def _setupSSD(self, labels, colors):
         # Load our SSD object detector.
         protoTxt = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
                                 'coco', 'SSD_512x512', 'deploy.prototxt')
