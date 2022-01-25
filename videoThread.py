@@ -447,7 +447,10 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
         # Perform a forward pass of the YOLO object detector.
-        detect = self._detect[self._args['detection']]
+        detectMode = self._args['detection']
+        if detectMode not in self._detect:
+            return # Nothing to do.
+        detect = self._detect[detectMode]
         net, ln = detect['net'], detect['ln']
         net.setInput(blob)
         layerOutputs = net.forward(ln)
