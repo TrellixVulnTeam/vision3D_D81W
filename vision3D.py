@@ -70,9 +70,19 @@ class Vision3DRadioButtonMode(QWidget):
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
+            # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+
+            # Update GUI with correct states checked.
+            rdoBtn.setChecked(True)
+            if self.rdoBoxRaw.text() != rdoBtn.text():
+                self.rdoBoxRaw.setChecked(False)
+            if self.rdoBoxUnd.text() != rdoBtn.text():
+                self.rdoBoxUnd.setChecked(False)
+            if self.rdoBoxStr.text() != rdoBtn.text():
+                self.rdoBoxStr.setChecked(False)
 
 class Vision3DRadioButtonDetection(QWidget):
     def __init__(self, param, parent=None):
@@ -91,9 +101,19 @@ class Vision3DRadioButtonDetection(QWidget):
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
+            # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+
+            # Update GUI with correct states checked.
+            rdoBtn.setChecked(True)
+            if self.rdoBoxNone.text() != rdoBtn.text():
+                self.rdoBoxNone.setChecked(False)
+            if self.rdoBoxYOLO.text() != rdoBtn.text():
+                self.rdoBoxYOLO.setChecked(False)
+            if self.rdoBoxSSD.text() != rdoBtn.text():
+                self.rdoBoxSSD.setChecked(False)
 
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
