@@ -11,7 +11,7 @@ import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator, QDoubleValidator
-from PyQt5.QtCore import pyqtSlot, Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QThreadPool, QObject
 from videoThread import VideoThread
 import cv2
 import numpy as np
@@ -35,7 +35,7 @@ class Vision3DEdit(QWidget):
         # Callback on parameter change.
         self._vision3D.disableCalibration()
         value = self.gui.text() # Text which has been modified.
-        self._vision3D.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
+        self._vision3D.signals.changeParamSignal.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
 
 class Vision3DCheckBox(QWidget):
     def __init__(self, param, triggerDisable, parent=None):
@@ -51,7 +51,7 @@ class Vision3DCheckBox(QWidget):
         if self._triggerDisable:
             self._vision3D.disableCalibration()
         value = self.gui.isChecked() # State which has been modified.
-        self._vision3D.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
+        self._vision3D.signals.changeParamSignal.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButtonMode(QWidget):
     def __init__(self, param, parent=None):
@@ -73,7 +73,7 @@ class Vision3DRadioButtonMode(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
             # Update GUI with correct states checked.
             rdoBtn.setChecked(True)
@@ -104,7 +104,7 @@ class Vision3DRadioButtonDetection(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParamSignal.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
             # Update GUI with correct states checked.
             rdoBtn.setChecked(True)
@@ -115,9 +115,13 @@ class Vision3DRadioButtonDetection(QWidget):
             if self.rdoBoxSSD.text() != rdoBtn.text():
                 self.rdoBoxSSD.setChecked(False)
 
+class Vision3DSignals(QObject):
+    # Signals enabling to update threads from application.
+    changeParamSignal = pyqtSignal(str, str, object) # May be int, double, ...
+    stopSignal = pyqtSignal() # GUI is closed.
+
 class Vision3D(QWidget):
     # Signals enabling to update thread from application.
-    changeParamSignal = pyqtSignal(str, str, object) # object may be int, double, ...
     calibratedThreadsLock = threading.Lock()
     calibratedThreads = 0
 
@@ -228,18 +232,20 @@ class Vision3D(QWidget):
             logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
 
         # Start threads.
+        self.signals = Vision3DSignals()
+        self._threadPool = QThreadPool() # QThreadPool must be used with QRunnable (NOT QThread).
+        self._threadPool.setMaxThreadCount(2)
         videoIDLeft = args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
-        self._threadLeft.changePixmapSignal.connect(self.updateFrame)
-        self._threadLeft.calibrationDoneSignal.connect(self.calibrationDone)
-        self._threadLeft.start()
+        self._threadLeft.signals.changePixmapSignal.connect(self.updateFrame)
+        self._threadLeft.signals.calibrationDoneSignal.connect(self.calibrationDone)
+        self._threadPool.start(self._threadLeft)
         videoIDRight = args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
-        self._threadRight.changePixmapSignal.connect(self.updateFrame)
-        self._threadRight.calibrationDoneSignal.connect(self.calibrationDone)
-        self._threadRight.start()
+        self._threadRight.signals.changePixmapSignal.connect(self.updateFrame)
+        self._threadRight.signals.calibrationDoneSignal.connect(self.calibrationDone)
+        self._threadPool.start(self._threadRight)
 
-    @pyqtSlot(np.ndarray, QLabel, int, QLabel)
     def updateFrame(self, frame, imgLbl, fps, txtLbl):
         # Update thread image.
         qtImg = self._convertCvQt(frame)
@@ -250,7 +256,6 @@ class Vision3D(QWidget):
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
 
-    @pyqtSlot(int, bool)
     def calibrationDone(self, vidID, hasROI):
         # Re-enable radio buttons when both threads are calibrated.
         self.calibratedThreadsLock.acquire()
@@ -289,8 +294,8 @@ class Vision3D(QWidget):
 
     def closeEvent(self, event):
         # Close application.
-        self._threadLeft.stop()
-        self._threadRight.stop()
+        self.signals.stopSignal.emit() # Warn threads to stop.
+        self._threadPool.waitForDone() # Wait for threads to stop.
         event.accept()
 
     def _createEditParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1,

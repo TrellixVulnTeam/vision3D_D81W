@@ -3,7 +3,7 @@
 
 # Imports.
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 from videoStream import VideoStream
 from calibrate import modifyCameraIntrinsics
 import os
@@ -15,11 +15,12 @@ import logging
 
 logger = logging.getLogger()
 
-class VideoThread(QThread):
+class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
     changePixmapSignal = pyqtSignal(np.ndarray, QLabel, int, QLabel)
     calibrationDoneSignal = pyqtSignal(int, bool)
 
+class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
     def __init__(self, vidID, args, imgLbl, txtLbl, vision3D):
         # Initialise.
         super().__init__()
@@ -29,10 +30,12 @@ class VideoThread(QThread):
         self._txtLbl = txtLbl
         self._needCalibration = False
         self._args['roiCam'] = False # Initialise ROI (raw mode).
-        vision3D.changeParamSignal.connect(self.onParameterChanged)
+        vision3D.signals.changeParamSignal.connect(self.onParameterChanged)
+        vision3D.signals.stopSignal.connect(self.stop)
         self._run = True
         self._vid = VideoStream(self._args)
         self.vidID = vidID
+        self.signals = VideoThreadSignals()
 
         # Get camera calibration parameters from target camera.
         self._cal = {}
@@ -89,7 +92,6 @@ class VideoThread(QThread):
                 net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
                 net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
-    @pyqtSlot(str, str, object)
     def onParameterChanged(self, param, objType, value):
         # Lots of events may be spawned: check impact is needed.
         newValue = None
@@ -150,7 +152,6 @@ class VideoThread(QThread):
     def stop(self):
         # Stop thread.
         self._run = False
-        self.wait()
 
     def _calibrate(self):
         # Check if calibration is needed:
@@ -364,7 +365,7 @@ class VideoThread(QThread):
                 self._args['detectionTime'] = stop - start
 
             # Get image back to application.
-            self.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
+            self.signals.changePixmapSignal.emit(frame, self._imgLbl, fps, self._txtLbl)
         return fps
 
     def _runCalibration(self):
@@ -386,7 +387,7 @@ class VideoThread(QThread):
     def _emitCalibrationDoneSignal(self):
         # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
-        self.calibrationDoneSignal.emit(self._args['videoID'], hasROI)
+        self.signals.calibrationDoneSignal.emit(self._args['videoID'], hasROI)
 
     def _generateMessage(self):
         # Generate message from options.
