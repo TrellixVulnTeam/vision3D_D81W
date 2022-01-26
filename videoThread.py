@@ -17,7 +17,7 @@ logger = logging.getLogger()
 
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    changePixmap = pyqtSignal(np.ndarray, QLabel, int, QLabel)
+    updateFrame = pyqtSignal(np.ndarray, QLabel, int, QLabel)
     calibrationDone = pyqtSignal(int, bool)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
@@ -365,7 +365,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 self._args['detectionTime'] = stop - start
 
             # Get image back to application.
-            self.signals.changePixmap.emit(frame, self._imgLbl, fps, self._txtLbl)
+            self.signals.updateFrame.emit(frame, self._imgLbl, fps, self._txtLbl)
         return fps
 
     def _runCalibration(self):

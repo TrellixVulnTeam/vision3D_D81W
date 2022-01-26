@@ -229,12 +229,12 @@ class Vision3D(QWidget):
         self._threadPool.setMaxThreadCount(2)
         videoIDLeft = args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
-        self._threadLeft.signals.changePixmap.connect(self.updateFrame)
+        self._threadLeft.signals.updateFrame.connect(self.updateFrame)
         self._threadLeft.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadLeft)
         videoIDRight = args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
-        self._threadRight.signals.changePixmap.connect(self.updateFrame)
+        self._threadRight.signals.updateFrame.connect(self.updateFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadRight)
 
