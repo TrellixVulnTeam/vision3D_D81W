@@ -399,14 +399,14 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             msg += ', alpha %.3f'%self._args['alpha']
             msg += ', CAL %s'%self._args['CAL']
         msg += ', ROI %s'%self._args['ROI']
-        msg += ', detection %4s'%self._args['detection']
+        msg += ', detect %4s'%self._args['detection']
         if self._args['detection'] != 'None':
-            msg += ', confidence %.3f'%self._args['confidence']
+            msg += ', conf %.3f'%self._args['confidence']
             msg += ', nms %.3f'%self._args['nms']
             if 'detectionTime' in self._args:
-                msg += ', detection time %.3f'%self._args['detectionTime']
+                msg += ', detectTime %.3f'%self._args['detectionTime']
             if 'detectionHits' in self._args:
-                msg += ', detection hits %d'%self._args['detectionHits']
+                msg += ', detectHits %d'%self._args['detectionHits']
 
         return msg
 
