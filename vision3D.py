@@ -182,33 +182,33 @@ class Vision3D(QWidget):
         self._createChkBoxParameters(grpBoxLay, 'DBGpost', 3, 26)
 
         # Create widgets.
-        self.imgLblLeft = QLabel()
-        self.txtLblLeft = QLabel('Left')
-        self.imgLblRight = QLabel()
-        self.txtLblRight = QLabel('Right')
-        self.imgLblPost = QLabel()
-        self.txtLblPost = QLabel('Postprocess')
+        self._imgLblLeft = QLabel()
+        self._txtLblLeft = QLabel('Left')
+        self._imgLblRight = QLabel()
+        self._txtLblRight = QLabel('Right')
+        self._imgLblPost = QLabel()
+        self._txtLblPost = QLabel('Postprocess')
         self._resetLabels()
 
         # Handle alignment.
         grpBox.setAlignment(Qt.AlignCenter)
         grpBoxLay.setAlignment(Qt.AlignCenter)
-        self.txtLblLeft.setAlignment(Qt.AlignCenter)
-        self.imgLblLeft.setAlignment(Qt.AlignCenter)
-        self.txtLblRight.setAlignment(Qt.AlignCenter)
-        self.imgLblRight.setAlignment(Qt.AlignCenter)
-        self.txtLblPost.setAlignment(Qt.AlignCenter)
-        self.imgLblPost.setAlignment(Qt.AlignCenter)
+        self._txtLblLeft.setAlignment(Qt.AlignCenter)
+        self._imgLblLeft.setAlignment(Qt.AlignCenter)
+        self._txtLblRight.setAlignment(Qt.AlignCenter)
+        self._imgLblRight.setAlignment(Qt.AlignCenter)
+        self._txtLblPost.setAlignment(Qt.AlignCenter)
+        self._imgLblPost.setAlignment(Qt.AlignCenter)
 
         # Handle layout.
         grdLay = QGridLayout()
         grdLay.addWidget(grpBox, 0, 0, 1, 2)
-        grdLay.addWidget(self.txtLblLeft, 1, 0)
-        grdLay.addWidget(self.txtLblRight, 1, 1)
-        grdLay.addWidget(self.imgLblLeft, 2, 0)
-        grdLay.addWidget(self.imgLblRight, 2, 1)
-        grdLay.addWidget(self.txtLblPost, 3, 0, 1, 2)
-        grdLay.addWidget(self.imgLblPost, 4, 0, 1, 2)
+        grdLay.addWidget(self._txtLblLeft, 1, 0)
+        grdLay.addWidget(self._txtLblRight, 1, 1)
+        grdLay.addWidget(self._imgLblLeft, 2, 0)
+        grdLay.addWidget(self._imgLblRight, 2, 1)
+        grdLay.addWidget(self._txtLblPost, 3, 0, 1, 2)
+        grdLay.addWidget(self._imgLblPost, 4, 0, 1, 2)
         self.setLayout(grdLay)
 
         # Download COCO dataset labels.
@@ -243,39 +243,40 @@ class Vision3D(QWidget):
         self._threadPool = QThreadPool() # QThreadPool must be used with QRunnable (NOT QThread).
         self._threadPool.setMaxThreadCount(3)
         videoIDLeft = args['videoIDLeft']
-        self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
+        self._threadLeft = VideoThread(videoIDLeft, self._args, self)
         self._threadLeft.signals.updateFinalFrame.connect(self.updateFinalFrame)
         self._threadLeft.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadLeft)
         videoIDRight = args['videoIDRight']
-        self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
+        self._threadRight = VideoThread(videoIDRight, self._args, self)
         self._threadRight.signals.updateFinalFrame.connect(self.updateFinalFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadRight)
-        self._threadPost = PostThread(self._args, self.imgLblPost, self.txtLblPost,
-                                      self, self._threadLeft, self._threadRight)
+        self._threadPost = PostThread(self._args, self, self._threadLeft, self._threadRight)
         self._threadPost.signals.updatePostFrame.connect(self.updatePostFrame)
         self._threadPool.start(self._threadPost)
 
-    def updateFinalFrame(self, frame, imgLbl, fps, txtLbl):
+    def updateFinalFrame(self, frame, fps, side):
         # Update thread image.
+        imgLbl = self._imgLblLeft if side == 'left' else self._imgLblRight
         qtImg = self._convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
 
         # Update thread label.
+        txtLbl = self._txtLblLeft if side == 'left' else self._txtLblRight
         txt = txtLbl.text()
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Left/Right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
 
-    def updatePostFrame(self, frame, imgLbl, msg, txtLbl):
+    def updatePostFrame(self, frame, msg):
         # Update thread image.
         qtImg = self._convertCvQt(frame, fmt='GRAY')
-        imgLbl.setPixmap(qtImg)
+        self._imgLblPost.setPixmap(qtImg)
 
         # Update thread label.
-        txt = txtLbl.text()
+        txt = self._txtLblPost.text()
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Postprocess).
-        txtLbl.setText(lbl + ' - ' + msg)
+        self._txtLblPost.setText(lbl + ' - ' + msg)
 
     def calibrationDone(self, vidID, hasROI):
         # Re-enable radio buttons when both threads are calibrated.
@@ -388,17 +389,17 @@ class Vision3D(QWidget):
     def _resetLabels(self):
         # Resize images.
         displayHeight, displayWidth = self._getFrameSize()
-        self.imgLblLeft.resize(displayWidth, displayHeight)
-        self.imgLblRight.resize(displayWidth, displayHeight)
-        self.imgLblPost.resize(displayWidth, displayHeight)
+        self._imgLblLeft.resize(displayWidth, displayHeight)
+        self._imgLblRight.resize(displayWidth, displayHeight)
+        self._imgLblPost.resize(displayWidth, displayHeight)
 
         # Black out frames.
         displayHeight, displayWidth = self._getFrameSize()
         shape = (displayHeight, displayWidth)
         frame = np.ones(shape, np.uint8) # Black image.
-        self.updateFinalFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
-        self.updateFinalFrame(frame, self.imgLblRight, 0, self.txtLblRight)
-        self.updatePostFrame(frame, self.imgLblPost, 'None', self.txtLblPost)
+        self.updateFinalFrame(frame, 0, 'left')
+        self.updateFinalFrame(frame, 0, 'right')
+        self.updatePostFrame(frame, 'None')
 
     def _convertCvQt(self, frame, fmt='BGR'):
         # Convert frame to pixmap.

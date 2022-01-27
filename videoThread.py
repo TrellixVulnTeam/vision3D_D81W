@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 
 # Imports.
-from PyQt5.QtWidgets import QLabel
 from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 from videoStream import VideoStream
 from calibrate import modifyCameraIntrinsics
@@ -18,17 +17,15 @@ logger = logging.getLogger('capt')
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
     updatePrepFrame = pyqtSignal(np.ndarray, str) # Update preprocessed frame (after undistort / stereo).
-    updateFinalFrame = pyqtSignal(np.ndarray, QLabel, int, QLabel) # Update final frame (with detections).
+    updateFinalFrame = pyqtSignal(np.ndarray, int, str) # Update final frame (with detections).
     calibrationDone = pyqtSignal(int, bool)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
-    def __init__(self, vidID, args, imgLbl, txtLbl, vision3D):
+    def __init__(self, vidID, args, vision3D):
         # Initialise.
         super().__init__()
         self._args = args.copy()
         self._args['videoID'] = vidID
-        self._imgLbl = imgLbl
-        self._txtLbl = txtLbl
         self._needCalibration = False
         self._args['roiCam'] = False # Initialise ROI (raw mode).
         vision3D.signals.changeParam.connect(self.onParameterChanged)
@@ -369,7 +366,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 self._args['detectionTime'] = stop - start
 
             # Get image back to application.
-            self.signals.updateFinalFrame.emit(frame, self._imgLbl, fps, self._txtLbl)
+            self.signals.updateFinalFrame.emit(frame, fps, self._cal['side'])
         return fps
 
     def _runCalibration(self):

@@ -3,7 +3,6 @@
 
 # Imports.
 import numpy as np
-from PyQt5.QtWidgets import QLabel
 from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 import threading
 import cv2
@@ -13,15 +12,13 @@ logger = logging.getLogger('post')
 
 class PostThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    updatePostFrame = pyqtSignal(np.ndarray, QLabel, str, QLabel) # Update postprocessed frame (depth, ...).
+    updatePostFrame = pyqtSignal(np.ndarray, str) # Update postprocessed frame (depth, ...).
 
 class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
-    def __init__(self, args, imgLbl, txtLbl, vision3D, threadLeft, threadRight):
+    def __init__(self, args, vision3D, threadLeft, threadRight):
         # Initialise.
         super().__init__()
         self._args = args.copy()
-        self._imgLbl = imgLbl
-        self._txtLbl = txtLbl
         vision3D.signals.changeParam.connect(self.onParameterChanged)
         vision3D.signals.stop.connect(self.stop)
         threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
@@ -103,7 +100,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 scaledDisparity = scaledDisparity * (255/np.max(scaledDisparity))
             scaledDisparity = scaledDisparity.astype(np.uint8)
             msg = 'depth (range 0-255, mean %03d, std %03d)'%(np.mean(scaledDisparity), np.std(scaledDisparity))
-            self.signals.updatePostFrame.emit(scaledDisparity, self._imgLbl, msg, self._txtLbl)
+            self.signals.updatePostFrame.emit(scaledDisparity, msg)
 
     def stop(self):
         # Stop thread.
