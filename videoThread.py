@@ -13,11 +13,12 @@ import numpy as np
 import time
 import logging
 
-logger = logging.getLogger()
+logger = logging.getLogger('capt')
 
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    updateFrame = pyqtSignal(np.ndarray, QLabel, int, QLabel)
+    updatePrepFrame = pyqtSignal(np.ndarray, str) # Update preprocessed frame (after undistort / stereo).
+    updateFinalFrame = pyqtSignal(np.ndarray, QLabel, int, QLabel) # Update final frame (with detections).
     calibrationDone = pyqtSignal(int, bool)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
@@ -116,11 +117,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         highImpact = highImpact or param == 'CAL'
         if highImpact: # Parameters with high impact (time, calibration computation).
             self._needCalibration = (param, newValue)
-        else: # Parameters which with no impact (immediate: ROI, DBG).
+        else: # Parameters which with no impact (immediate: ROI, DBGcapt).
             self._args[param] = newValue
 
         # Update logger level.
-        if self._args['DBG']:
+        if self._args['DBGcapt']:
             logger.setLevel(logging.DEBUG)
         else:
             logger.setLevel(logging.INFO)
@@ -136,7 +137,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         # Run thread.
         while self._run and self._vid.isOpened():
             # Debug on demand.
-            if self._args['DBG']:
+            if self._args['DBGcapt']:
                 msg = '[stream%02d-run]'%self._args['videoID']
                 msg += ' FPS %02d'%fps
                 msg += self._generateMessage()
@@ -357,6 +358,9 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
                 frame = roiFrame # Replace frame with ROI of undistorted frame.
 
+            # Get image back to application.
+            self.signals.updatePrepFrame.emit(frame, self._cal['side'])
+
             # Run detection on demand.
             if self._args['detection'] != 'None':
                 start = time.time()
@@ -365,7 +369,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 self._args['detectionTime'] = stop - start
 
             # Get image back to application.
-            self.signals.updateFrame.emit(frame, self._imgLbl, fps, self._txtLbl)
+            self.signals.updateFinalFrame.emit(frame, self._imgLbl, fps, self._txtLbl)
         return fps
 
     def _runCalibration(self):

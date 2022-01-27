@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton, QButt
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator, QDoubleValidator
 from PyQt5.QtCore import Qt, pyqtSignal, QThreadPool, QObject
 from videoThread import VideoThread
+from postThread import PostThread
 import cv2
 import numpy as np
 import threading
@@ -169,15 +170,25 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
         self._args['nms'] = 0.3
         self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
-        self._args['DBG'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBG', 4, 26)
+        self._args['depth'] = False
+        self._createChkBoxParameters(grpBoxLay, 'depth', 1, 10)
+        self._args['numDisparities'] = 16
+        self._createEditParameters(grpBoxLay, 'numDisparities', 1, 24, enable=True, objType='int')
+        self._args['blockSize'] = 15
+        self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
+        self._args['DBGcapt'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 2, 26)
+        self._args['DBGpost'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 3, 26)
 
         # Create widgets.
         self.imgLblLeft = QLabel()
         self.txtLblLeft = QLabel('Left')
         self.imgLblRight = QLabel()
         self.txtLblRight = QLabel('Right')
-        self._resizeFrames()
+        self.imgLblPost = QLabel()
+        self.txtLblPost = QLabel('Postprocess')
+        self._resetLabels()
 
         # Handle alignment.
         grpBox.setAlignment(Qt.AlignCenter)
@@ -186,6 +197,8 @@ class Vision3D(QWidget):
         self.imgLblLeft.setAlignment(Qt.AlignCenter)
         self.txtLblRight.setAlignment(Qt.AlignCenter)
         self.imgLblRight.setAlignment(Qt.AlignCenter)
+        self.txtLblPost.setAlignment(Qt.AlignCenter)
+        self.imgLblPost.setAlignment(Qt.AlignCenter)
 
         # Handle layout.
         grdLay = QGridLayout()
@@ -194,6 +207,8 @@ class Vision3D(QWidget):
         grdLay.addWidget(self.txtLblRight, 1, 1)
         grdLay.addWidget(self.imgLblLeft, 2, 0)
         grdLay.addWidget(self.imgLblRight, 2, 1)
+        grdLay.addWidget(self.txtLblPost, 3, 0, 1, 2)
+        grdLay.addWidget(self.imgLblPost, 4, 0, 1, 2)
         self.setLayout(grdLay)
 
         # Download COCO dataset labels.
@@ -226,27 +241,41 @@ class Vision3D(QWidget):
         # Start threads.
         self.signals = Vision3DSignals()
         self._threadPool = QThreadPool() # QThreadPool must be used with QRunnable (NOT QThread).
-        self._threadPool.setMaxThreadCount(2)
+        self._threadPool.setMaxThreadCount(3)
         videoIDLeft = args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self.imgLblLeft, self.txtLblLeft, self)
-        self._threadLeft.signals.updateFrame.connect(self.updateFrame)
+        self._threadLeft.signals.updateFinalFrame.connect(self.updateFinalFrame)
         self._threadLeft.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadLeft)
         videoIDRight = args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self.imgLblRight, self.txtLblRight, self)
-        self._threadRight.signals.updateFrame.connect(self.updateFrame)
+        self._threadRight.signals.updateFinalFrame.connect(self.updateFinalFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadRight)
+        self._threadPost = PostThread(self._args, self.imgLblPost, self.txtLblPost,
+                                      self, self._threadLeft, self._threadRight)
+        self._threadPost.signals.updatePostFrame.connect(self.updatePostFrame)
+        self._threadPool.start(self._threadPost)
 
-    def updateFrame(self, frame, imgLbl, fps, txtLbl):
+    def updateFinalFrame(self, frame, imgLbl, fps, txtLbl):
         # Update thread image.
         qtImg = self._convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
 
         # Update thread label.
         txt = txtLbl.text()
-        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (left/right).
+        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Left/Right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
+
+    def updatePostFrame(self, frame, imgLbl, msg, txtLbl):
+        # Update thread image.
+        qtImg = self._convertCvQt(frame, fmt='GRAY')
+        imgLbl.setPixmap(qtImg)
+
+        # Update thread label.
+        txt = txtLbl.text()
+        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Postprocess).
+        txtLbl.setText(lbl + ' - ' + msg)
 
     def calibrationDone(self, vidID, hasROI):
         # Re-enable radio buttons when both threads are calibrated.
@@ -266,13 +295,6 @@ class Vision3D(QWidget):
         self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
-        # Black out frames.
-        displayHeight, displayWidth = self._getFrameSize()
-        shape = (displayHeight, displayWidth)
-        frame = np.ones(shape, np.uint8) # Black image.
-        self.updateFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
-        self.updateFrame(frame, self.imgLblRight, 0, self.txtLblRight)
-
         # Disable access to calibration parameters to prevent thread overflow.
         self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
@@ -363,18 +385,36 @@ class Vision3D(QWidget):
             displayWidth = self._args['videoCapWidth']
         return displayHeight, displayWidth
 
-    def _resizeFrames(self):
+    def _resetLabels(self):
         # Resize images.
         displayHeight, displayWidth = self._getFrameSize()
         self.imgLblLeft.resize(displayWidth, displayHeight)
         self.imgLblRight.resize(displayWidth, displayHeight)
+        self.imgLblPost.resize(displayWidth, displayHeight)
 
-    def _convertCvQt(self, frame):
+        # Black out frames.
+        displayHeight, displayWidth = self._getFrameSize()
+        shape = (displayHeight, displayWidth)
+        frame = np.ones(shape, np.uint8) # Black image.
+        self.updateFinalFrame(frame, self.imgLblLeft, 0, self.txtLblLeft)
+        self.updateFinalFrame(frame, self.imgLblRight, 0, self.txtLblRight)
+        self.updatePostFrame(frame, self.imgLblPost, 'None', self.txtLblPost)
+
+    def _convertCvQt(self, frame, fmt='BGR'):
         # Convert frame to pixmap.
-        rgbImg = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        displayHeight, displayWidth, channel = rgbImg.shape
-        bytesPerLine = channel * displayWidth
-        qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
+        qtImg = None
+        if fmt == 'BGR':
+            rgbImg = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            displayHeight, displayWidth, channel = rgbImg.shape
+            bytesPerLine = channel * displayWidth
+            qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
+        elif fmt == 'GRAY':
+            displayHeight, displayWidth = frame.shape
+            channel = 1
+            bytesPerLine = channel * displayWidth
+            qtImg = QImage(frame, displayWidth, displayHeight, bytesPerLine, QImage.Format_Indexed8)
+        assert qtImg is not None, 'unknown CvQt conversion format'
+
         return QPixmap.fromImage(qtImg)
 
 def cmdLineArgs():
