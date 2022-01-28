@@ -41,7 +41,7 @@ Nvidia: jetson nano
                                  -DBUILD_opencv_python3=ON -DCMAKE_INSTALL_PREFIX:PATH=~/Programs/opencv/local \
                                  -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_GSTREAMER=ON \
                                  -DWITH_CUDA=ON -DEIGEN_INCLUDE_PATH=/usr/include/eigen3 \
-                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3 ..
+                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3,dnn,stitching ..
   ~/Programs/opencv/build> make -j 2
   ~/Programs/opencv/build> make install
   ~/Programs/opencv/build> sudo ldconfig
@@ -86,7 +86,7 @@ Friendlyarm: rockchip
                                  -DBUILD_opencv_python3=ON -DCMAKE_INSTALL_PREFIX:PATH=~/Programs/opencv/local \
                                  -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_GSTREAMER=ON \
                                  -DOPENCV_DNN_OPENCL=ON \
-                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3,dnn ..
+                                 -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3,dnn,stitching ..
   ~/Programs/opencv/build> make -j 2
   ~/Programs/opencv/build> make install
   ~/Programs/opencv/build> sudo ldconfig

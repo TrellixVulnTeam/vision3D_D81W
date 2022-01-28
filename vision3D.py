@@ -170,12 +170,7 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
         self._args['nms'] = 0.3
         self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
-        self._args['depth'] = False
-        self._createChkBoxParameters(grpBoxLay, 'depth', 1, 10)
-        self._args['numDisparities'] = 16
-        self._createEditParameters(grpBoxLay, 'numDisparities', 1, 24, enable=True, objType='int')
-        self._args['blockSize'] = 15
-        self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
+        self._createChkBoxParametersPost(grpBoxLay)
         self._args['DBGcapt'] = False
         self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 2, 26)
         self._args['DBGpost'] = False
@@ -346,7 +341,7 @@ class Vision3D(QWidget):
         return v3DChkBox
 
     def _createRdoButMode(self, grpBoxLay, param, row, col):
-        # Create one parameter.
+        # Create GUI for mode.
         lbl = QLabel(param)
         self.v3DRdoBtnMode = Vision3DRadioButtonMode(param, parent=self)
         self.v3DRdoBtnMode.rdoBoxRaw.setChecked(True)
@@ -361,7 +356,7 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxStr, row+3, col)
 
     def _createRdoButDetection(self, grpBoxLay, param, row, col):
-        # Create one parameter.
+        # Create GUI for detection.
         lbl = QLabel(param)
         self.v3DRdoBtnDetect = Vision3DRadioButtonDetection(param, parent=self)
         self.v3DRdoBtnDetect.rdoBoxNone.setChecked(True)
@@ -374,6 +369,21 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxNone, row, col+1)
         grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxYOLO, row, col+2)
         grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxSSD, row, col+3)
+
+    def _createChkBoxParametersPost(self, grpBoxLay):
+        # Create GUI for postprocessing.
+        self._args['depth'] = False
+        depthChkBox = self._createChkBoxParameters(grpBoxLay, 'depth', 1, 10)
+        self._args['numDisparities'] = 16
+        self._createEditParameters(grpBoxLay, 'numDisparities', 1, 24, enable=True, objType='int')
+        self._args['blockSize'] = 15
+        self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
+        self._args['stitch'] = False
+        stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 2, 10)
+        grpBtn = QButtonGroup(self)
+        grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(depthChkBox.gui)
+        grpBtn.addButton(stitchChkBox.gui)
 
     def _getFrameSize(self):
         # Get frame size.
