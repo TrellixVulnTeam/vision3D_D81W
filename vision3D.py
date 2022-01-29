@@ -108,6 +108,31 @@ class Vision3DRadioButtonDetection(QWidget):
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
+class Vision3DRadioButtonKeyPoints(QWidget):
+    def __init__(self, param, parent=None):
+        # Initialise.
+        super().__init__(parent)
+        self.rdoBoxORB = QRadioButton('ORB')
+        self.rdoBoxORB.mode = 'ORB'
+        self.rdoBoxSIFT = QRadioButton('SIFT')
+        self.rdoBoxSIFT.mode = 'SIFT'
+        self._param = param # Track associated parameter.
+        self._vision3D = parent
+        grpBtn = QButtonGroup(parent)
+        grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(self.rdoBoxORB)
+        grpBtn.addButton(self.rdoBoxSIFT)
+
+    def onParameterChanged(self):
+        # Callback on parameter change.
+        rdoBtn = self.sender()
+        if rdoBtn.isChecked():
+            # Send signal to threads.
+            self._vision3D.disableCalibration()
+            value = rdoBtn.mode # Mode which has been modified.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+
+
 class Vision3DSignals(QObject):
     # Signals enabling to update threads from application.
     changeParam = pyqtSignal(str, str, object) # May be int, double, ...
@@ -263,9 +288,9 @@ class Vision3D(QWidget):
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Left/Right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
 
-    def updatePostFrame(self, frame, msg):
+    def updatePostFrame(self, frame, msg, fmt):
         # Update thread image.
-        qtImg = self._convertCvQt(frame, fmt='GRAY')
+        qtImg = self._convertCvQt(frame, fmt=fmt)
         self._imgLblPost.setPixmap(qtImg)
 
         # Update thread label.
@@ -378,11 +403,24 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'numDisparities', 1, 24, enable=True, objType='int')
         self._args['blockSize'] = 15
         self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
+        self._args['keypoints'] = False
+        kptChkBox = self._createChkBoxParameters(grpBoxLay, 'keypoints', 2, 10)
+        self._args['kptMode'] = 'ORB'
+        self.v3DRdoBtnKpt = Vision3DRadioButtonKeyPoints('kptMode', parent=self)
+        self.v3DRdoBtnKpt.rdoBoxORB.setChecked(True)
+        self.v3DRdoBtnKpt.rdoBoxSIFT.setChecked(False)
+        self.v3DRdoBtnKpt.rdoBoxORB.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
+        self.v3DRdoBtnKpt.rdoBoxSIFT.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
+        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxORB, 2, 22)
+        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxSIFT, 2, 23)
+        self._args['nbFeatures'] = 100
+        self._createEditParameters(grpBoxLay, 'nbFeatures', 2, 24, enable=True, objType='int')
         self._args['stitch'] = False
-        stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 2, 10)
+        stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
         grpBtn = QButtonGroup(self)
         grpBtn.setExclusive(True) # Make radio button exclusive.
         grpBtn.addButton(depthChkBox.gui)
+        grpBtn.addButton(kptChkBox.gui)
         grpBtn.addButton(stitchChkBox.gui)
 
     def _getFrameSize(self):
@@ -409,7 +447,7 @@ class Vision3D(QWidget):
         frame = np.ones(shape, np.uint8) # Black image.
         self.updateFinalFrame(frame, 0, 'left')
         self.updateFinalFrame(frame, 0, 'right')
-        self.updatePostFrame(frame, 'None')
+        self.updatePostFrame(frame, 'None', 'GRAY')
 
     def _convertCvQt(self, frame, fmt='BGR'):
         # Convert frame to pixmap.
@@ -424,7 +462,7 @@ class Vision3D(QWidget):
             channel = 1
             bytesPerLine = channel * displayWidth
             qtImg = QImage(frame, displayWidth, displayHeight, bytesPerLine, QImage.Format_Indexed8)
-        assert qtImg is not None, 'unknown CvQt conversion format'
+        assert qtImg is not None, 'unknown CvQt conversion format %s'%fmt
 
         return QPixmap.fromImage(qtImg)
 

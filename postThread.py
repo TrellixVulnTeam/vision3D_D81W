@@ -12,7 +12,7 @@ logger = logging.getLogger('post')
 
 class PostThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    updatePostFrame = pyqtSignal(np.ndarray, str) # Update postprocessed frame (depth, ...).
+    updatePostFrame = pyqtSignal(np.ndarray, str, str) # Update postprocessed frame (depth, ...).
 
 class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
     def __init__(self, args, vision3D, threadLeft, threadRight):
@@ -78,13 +78,20 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 if self._args['depth']:
                     msg += ', numDisparities %d'%self._args['numDisparities']
                     msg += ', blockSize %d'%self._args['blockSize']
+                msg += ', keypoints %s'%self._args['keypoints']
+                if self._args['keypoints']:
+                    msg += ', kptMode %s'%self._args['kptMode']
+                    msg += ', nbFeatures %d'%self._args['nbFeatures']
                 msg += ', stitch %s'%self._args['stitch']
                 if self._args['stitch'] and 'stitchStatus' in self._args:
                     msg += ', stitchStatus %s'%self._args['stitchStatus']
                 logger.debug(msg)
 
             # Checks.
-            if not self._args['depth'] and not self._args['stitch']:
+            runPost = self._args['depth']
+            runPost = runPost or self._args['keypoints']
+            runPost = runPost or self._args['stitch']
+            if not runPost:
                 continue
             if self._post['left'] is None or self._post['right'] is None:
                 continue
@@ -96,16 +103,18 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             self._postLock.release()
 
             # Postprocess.
-            frame, msg = np.ones(frameL.shape, np.uint8), ''
+            frame, msg, fmt = np.ones(frameL.shape, np.uint8), '', 'GRAY'
             try:
                 if self._args['depth']:
-                    frame, msg = self._runDepth(frameL, frameR)
+                    frame, msg, fmt = self._runDepth(frameL, frameR)
+                elif self._args['keypoints']:
+                    frame, msg, fmt = self._runKeypoints(frameL, frameR)
                 elif self._args['stitch']:
-                    frame, msg = self._runStitch(frameL, frameR)
+                    frame, msg, fmt = self._runStitch(frameL, frameR)
             except:
                 if msg == '': # Otherwise, keep more relevant message.
                     msg = 'OpenCV exception!...'
-            self.signals.updatePostFrame.emit(frame, msg)
+            self.signals.updatePostFrame.emit(frame, msg, fmt)
 
     def stop(self):
         # Stop thread.
@@ -129,7 +138,40 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         frame = scaledDisparity.astype(np.uint8)
         msg = 'depth (range 0-255, mean %03d, std %03d)'%(np.mean(scaledDisparity), np.std(scaledDisparity))
 
-        return frame, msg
+        return frame, msg, 'GRAY'
+
+    def _runKeypoints(self, frameL, frameR):
+        # Detect keypoints.
+        kptMode, nbFeatures = None, self._args['nbFeatures']
+        if self._args['kptMode'] == 'ORB':
+            kptMode = cv2.ORB_create(nfeatures=nbFeatures)
+        elif self._args['kptMode'] == 'SIFT':
+            kptMode = cv2.SIFT_create(nfeatures=nbFeatures)
+            self._convertToGrayScale(frameL)
+            self._convertToGrayScale(frameR)
+        kptL, dscL = kptMode.detectAndCompute(frameL, None)
+        kptR, dscR = kptMode.detectAndCompute(frameR, None)
+        if len(kptL) == 0 or len(kptR) == 0:
+            frame = np.ones(frameL.shape, np.uint8) # Black image.
+            msg = 'KO: no keypoint'
+            return frame, msg, 'GRAY'
+
+        # Match keypoints.
+        norm = None
+        if self._args['kptMode'] == 'ORB':
+            norm = cv2.NORM_HAMMING # Better for ORB.
+        elif self._args['kptMode'] == 'SIFT':
+            norm = cv2.NORM_L2 # Better for SIFT.
+        bf = cv2.BFMatcher(norm, crossCheck=True)
+        matches = bf.match(dscL, dscR)
+        matches = sorted(matches, key = lambda x: x.distance)
+
+        # Draw matches.
+        frame = cv2.drawMatches(frameL, kptL, frameR, kptR, matches, None)
+        minDist = np.min([match.distance for match in matches])
+        msg = 'keypoints (min distance %.3f, nb matches %d)'%(minDist, len(matches))
+
+        return frame, msg, 'BGR'
 
     def _runStitch(self, frameL, frameR):
         # Stitch frames.
@@ -148,4 +190,18 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         else:
             msg += ' OK'
 
-        return frame, msg
+        return frame, msg, 'BGR'
+
+    @staticmethod
+    def _convertToGrayScale(frame):
+        # Convert to gray scale if needed.
+        convertToGrayScale = True
+        if len(frame.shape) == 3: # RGB, BGR or GRAY.
+            if frame.shape[2] == 1: # GRAY.
+                convertToGrayScale = False
+        else: # GRAY.
+            convertToGrayScale = False
+        if convertToGrayScale:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        return frame
