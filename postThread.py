@@ -118,7 +118,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._postLock.release()
 
     def _runDepth(self, frameL, frameR):
-        # Postprocess.
+        # Compute depth map.
         if self._stereo is None:
             self._stereo = cv2.StereoBM_create(numDisparities=self._args['numDisparities'],
                                                blockSize=self._args['blockSize'])
