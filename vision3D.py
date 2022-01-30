@@ -197,9 +197,15 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
         self._createChkBoxParametersPost(grpBoxLay)
         self._args['DBGcapt'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 2, 26)
+        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 27)
         self._args['DBGpost'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 3, 26)
+        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 2, 27)
+        self._args['DBGrun'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGrun', 1, 28)
+        self._args['DBGprof'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGprof', 2, 28)
+        self._args['DBGcomm'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGcomm', 3, 28)
 
         # Create widgets.
         self._imgLblLeft = QLabel()

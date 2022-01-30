@@ -335,6 +335,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         frameOK, frame, fps = self._vid.read()
         if frameOK:
             # Undistort or stereo on demand.
+            start = time.time()
             if self._args['mode'] == 'und':
                 newCamMtx = self._args['newCamMtx']
                 if self._args['fisheye']:
@@ -347,6 +348,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 stereoMapX, stereoMapY = stereoMap[0], stereoMap[1]
                 strFrame = cv2.remap(frame, stereoMapX, stereoMapY, cv2.INTER_LINEAR)
                 frame = strFrame # Replace frame with stereo frame.
+            stop = time.time()
+            self._args['undistortTime'] = stop - start
 
             # Show only ROI on demand.
             if self._args['ROI'] and self._args['roiCam']:
@@ -356,17 +359,28 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 frame = roiFrame # Replace frame with ROI of undistorted frame.
 
             # Get image back to application.
+            start = time.time()
             self.signals.updatePrepFrame.emit(frame, self._cal['side'])
+            stop = time.time()
+            self._args['updatePrepFrameTime'] = stop - start
+            self._args['updatePrepFrameSize'] = frame.nbytes
 
             # Run detection on demand.
+            for key in ['detectHits', 'detectTime', 'dnnTime']:
+                if key in self._args:
+                    del self._args[key]
             if self._args['detection'] != 'None':
                 start = time.time()
                 self._runDetection(frame)
                 stop = time.time()
-                self._args['detectionTime'] = stop - start
+                self._args['detectTime'] = stop - start
 
             # Get image back to application.
+            start = time.time()
             self.signals.updateFinalFrame.emit(frame, fps, self._cal['side'])
+            stop = time.time()
+            self._args['updateFinalFrameTime'] = stop - start
+            self._args['updateFinalFrameSize'] = frame.nbytes
         return fps
 
     def _runCalibration(self):
@@ -380,7 +394,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         stop = time.time()
         msg = '[stream%02d-cal]'%self._args['videoID']
         msg += ' time %.6f s'%(stop - start)
-        msg += self._generateMessage()
+        msg += self._generateMessage(dbgRun=True)
         logger.info(msg)
         self._needCalibration = False
         self._emitCalibrationDoneSignal()
@@ -390,24 +404,41 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         hasROI = False if self._args['roiCam'] is False else True
         self.signals.calibrationDone.emit(self._args['videoID'], hasROI)
 
-    def _generateMessage(self):
+    def _generateMessage(self, dbgRun=False):
         # Generate message from options.
-        msg = ', mode %s'%self._args['mode']
-        if self._args['fisheye']:
-            msg += ', fovScale %.3f'%self._args['fovScale']
-            msg += ', balance %.3f'%self._args['balance']
-        else:
-            msg += ', alpha %.3f'%self._args['alpha']
-            msg += ', CAL %s'%self._args['CAL']
-        msg += ', ROI %s'%self._args['ROI']
-        msg += ', detect %4s'%self._args['detection']
-        if self._args['detection'] != 'None':
-            msg += ', conf %.3f'%self._args['confidence']
-            msg += ', nms %.3f'%self._args['nms']
-            if 'detectionTime' in self._args:
-                msg += ', detectTime %.3f'%self._args['detectionTime']
-            if 'detectionHits' in self._args:
-                msg += ', detectHits %d'%self._args['detectionHits']
+        msg = ''
+        if dbgRun or self._args['DBGrun']:
+            msg += ', mode %s'%self._args['mode']
+            if self._args['fisheye']:
+                msg += ', fovScale %.3f'%self._args['fovScale']
+                msg += ', balance %.3f'%self._args['balance']
+            else:
+                msg += ', alpha %.3f'%self._args['alpha']
+                msg += ', CAL %s'%self._args['CAL']
+            msg += ', ROI %s'%self._args['ROI']
+            msg += ', detect %4s'%self._args['detection']
+            if self._args['detection'] != 'None':
+                msg += ', conf %.3f'%self._args['confidence']
+                msg += ', nms %.3f'%self._args['nms']
+                if 'detectHits' in self._args:
+                    msg += ', detectHits %d'%self._args['detectHits']
+        if self._args['DBGprof']:
+            msg += ', mode %s'%self._args['mode']
+            if 'undistortTime' in self._args:
+                msg += ', undistortTime %.3f'%self._args['undistortTime']
+            msg += ', detect %4s'%self._args['detection']
+            if 'detectTime' in self._args:
+                msg += ', detectTime %.3f'%self._args['detectTime']
+            if 'dnnTime' in self._args:
+                msg += ', dnnTime %.3f'%self._args['dnnTime']
+        if self._args['DBGcomm']:
+            msg += ', comm'
+            for key in ['updatePrepFrameTime', 'updateFinalFrameTime']:
+                if key in self._args:
+                    msg += ', %s %.3f'%(key, self._args[key])
+            for key in ['updatePrepFrameSize', 'updateFinalFrameSize']:
+                if key in self._args:
+                    msg += ', %s %d'%(key, self._args[key])
 
         return msg
 
@@ -454,7 +485,10 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         detect = self._detect[detectMode]
         net, ln = detect['net'], detect['ln']
         net.setInput(blob)
+        start = time.time()
         layerOutputs = net.forward(ln)
+        stop = time.time()
+        self._args['dnnTime'] = stop - start
 
         # Initialize our lists of detected bounding boxes, confidences, and class IDs.
         boxes, confidences, classIDs = [], [], []
@@ -488,13 +522,13 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                     classIDs.append(classID)
 
         # Check if we have detected some objects.
-        self._args['detectionHits'] = len(boxes)
+        self._args['detectHits'] = len(boxes)
         if len(boxes) == 0:
             return
 
         # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
-        self._args['detectionHits'] = len(idxs)
+        self._args['detectHits'] = len(idxs)
 
         # Ensure at least one detection exists.
         colors, labels = detect['colors'], detect['labels']

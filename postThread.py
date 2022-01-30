@@ -7,6 +7,7 @@ from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 import threading
 import cv2
 import logging
+import time
 
 logger = logging.getLogger('post')
 
@@ -74,17 +75,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             # Debug on demand.
             if self._args['DBGpost']:
                 msg = '[post-run]'
-                msg += ' depth %s'%self._args['depth']
-                if self._args['depth']:
-                    msg += ', numDisparities %d'%self._args['numDisparities']
-                    msg += ', blockSize %d'%self._args['blockSize']
-                msg += ', keypoints %s'%self._args['keypoints']
-                if self._args['keypoints']:
-                    msg += ', kptMode %s'%self._args['kptMode']
-                    msg += ', nbFeatures %d'%self._args['nbFeatures']
-                msg += ', stitch %s'%self._args['stitch']
-                if self._args['stitch'] and 'stitchStatus' in self._args:
-                    msg += ', stitchStatus %s'%self._args['stitchStatus']
+                msg += self._generateMessage()
                 logger.debug(msg)
 
             # Checks.
@@ -103,6 +94,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             self._postLock.release()
 
             # Postprocess.
+            start = time.time()
             frame, msg, fmt = np.ones(frameL.shape, np.uint8), '', 'GRAY'
             try:
                 if self._args['depth']:
@@ -114,7 +106,15 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             except:
                 if msg == '': # Otherwise, keep more relevant message.
                     msg = 'OpenCV exception!...'
+            stop = time.time()
+            self._args['postTime'] = stop - start
+
+            # Get image back to application.
+            start = time.time()
             self.signals.updatePostFrame.emit(frame, msg, fmt)
+            stop = time.time()
+            self._args['updatePostFrameTime'] = stop - start
+            self._args['updatePostFrameSize'] = frame.nbytes
 
     def stop(self):
         # Stop thread.
@@ -205,3 +205,36 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         return frame
+
+    def _generateMessage(self):
+        # Generate message from options.
+        msg = ''
+        if self._args['DBGrun']:
+            msg += ', depth %s'%self._args['depth']
+            if self._args['depth']:
+                msg += ', numDisparities %d'%self._args['numDisparities']
+                msg += ', blockSize %d'%self._args['blockSize']
+            msg += ', keypoints %s'%self._args['keypoints']
+            if self._args['keypoints']:
+                msg += ', kptMode %s'%self._args['kptMode']
+                msg += ', nbFeatures %d'%self._args['nbFeatures']
+            msg += ', stitch %s'%self._args['stitch']
+            if self._args['stitch'] and 'stitchStatus' in self._args:
+                msg += ', stitchStatus %s'%self._args['stitchStatus']
+        if self._args['DBGprof']:
+            if self._args['depth']:
+                msg += ', depth'
+            if self._args['keypoints']:
+                msg += ', keypoints'
+            if self._args['stitch']:
+                msg += ', stitch'
+            if 'postTime' in self._args:
+                msg += ', postTime %.3f'%self._args['postTime']
+        if self._args['DBGcomm']:
+            msg += ', comm'
+            if 'updatePostFrameTime' in self._args:
+                msg += ', updatePostFrameTime %.3f'%self._args['updatePostFrameTime']
+            if 'updatePostFrameSize' in self._args:
+                msg += ', updatePostFrameSize %d'%self._args['updatePostFrameSize']
+
+        return msg
