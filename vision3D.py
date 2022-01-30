@@ -132,7 +132,6 @@ class Vision3DRadioButtonKeyPoints(QWidget):
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
-
 class Vision3DSignals(QObject):
     # Signals enabling to update threads from application.
     changeParam = pyqtSignal(str, str, object) # May be int, double, ...
