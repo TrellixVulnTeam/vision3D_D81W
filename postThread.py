@@ -141,14 +141,16 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, msg, 'GRAY'
 
     def _runKeypoints(self, frameL, frameR):
+        # To achieve more accurate results, convert frames to grayscale.
+        frameL = self._convertToGrayScale(frameL)
+        frameR = self._convertToGrayScale(frameR)
+
         # Detect keypoints.
         kptMode, nbFeatures = None, self._args['nbFeatures']
         if self._args['kptMode'] == 'ORB':
             kptMode = cv2.ORB_create(nfeatures=nbFeatures)
         elif self._args['kptMode'] == 'SIFT':
             kptMode = cv2.SIFT_create(nfeatures=nbFeatures)
-            self._convertToGrayScale(frameL)
-            self._convertToGrayScale(frameR)
         kptL, dscL = kptMode.detectAndCompute(frameL, None)
         kptR, dscR = kptMode.detectAndCompute(frameR, None)
         if len(kptL) == 0 or len(kptR) == 0:
