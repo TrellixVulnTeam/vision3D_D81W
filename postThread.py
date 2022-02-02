@@ -164,14 +164,24 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             norm = cv2.NORM_HAMMING # Better for ORB.
         elif self._args['kptMode'] == 'SIFT':
             norm = cv2.NORM_L2 # Better for SIFT.
-        bf = cv2.BFMatcher(norm, crossCheck=True)
-        matches = bf.match(dscL, dscR)
-        matches = sorted(matches, key = lambda x: x.distance)
+        bf = cv2.BFMatcher(norm, crossCheck=False) # Need crossCheck=False for knnMatch.
+        matches = bf.knnMatch(dscL, dscR, k=2) # knnMatch crucial to get 2 matches m1 and m2.
+
+        # To keep only strong matches.
+        bestMatches = []
+        for m1, m2 in matches: # For every descriptor, take closest two matches.
+            if m1.distance < 0.6 * m2.distance: # Best match has to be closer than second best.
+                bestMatches.append(m1) # Lowe’s ratio test.
+        if len(bestMatches) == 0:
+            frame = np.ones(frameL.shape, np.uint8) # Black image.
+            msg = 'KO: no match'
+            return frame, msg, 'GRAY'
 
         # Draw matches.
-        frame = cv2.drawMatches(frameL, kptL, frameR, kptR, matches, None)
-        minDist = np.min([match.distance for match in matches])
-        msg = 'keypoints (min distance %.3f, nb matches %d)'%(minDist, len(matches))
+        frame = cv2.drawMatches(frameL, kptL, frameR, kptR, bestMatches, None)
+        minDist = np.min([match.distance for match in bestMatches])
+        data = (self._args['kptMode'], minDist, len(matches))
+        msg = '%s keypoints (min distance %.3f, nb matches %d)'%data
 
         return frame, msg, 'BGR'
 
