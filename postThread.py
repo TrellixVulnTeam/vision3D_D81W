@@ -89,8 +89,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
             # Get frames to postprocess.
             self._postLock.acquire()
-            frameL = cv2.cvtColor(self._post['left'], cv2.COLOR_BGR2GRAY)
-            frameR = cv2.cvtColor(self._post['right'], cv2.COLOR_BGR2GRAY)
+            frameL = self._post['left'].copy()
+            frameR = self._post['right'].copy()
             self._postLock.release()
 
             # Postprocess.
@@ -127,11 +127,15 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._postLock.release()
 
     def _runDepth(self, frameL, frameR):
+        # Convert frames to grayscale.
+        grayL = self._convertToGrayScale(frameL)
+        grayR = self._convertToGrayScale(frameR)
+
         # Compute depth map.
         if self._stereo is None:
             self._stereo = cv2.StereoBM_create(numDisparities=self._args['numDisparities'],
                                                blockSize=self._args['blockSize'])
-        disparity = self._stereo.compute(frameL, frameR)
+        disparity = self._stereo.compute(grayL, grayR)
         scaledDisparity = disparity - np.min(disparity)
         if np.max(scaledDisparity) > 0:
             scaledDisparity = scaledDisparity * (255/np.max(scaledDisparity))
@@ -142,8 +146,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
     def _runKeypoints(self, frameL, frameR):
         # To achieve more accurate results, convert frames to grayscale.
-        frameL = self._convertToGrayScale(frameL)
-        frameR = self._convertToGrayScale(frameR)
+        grayL = self._convertToGrayScale(frameL)
+        grayR = self._convertToGrayScale(frameR)
 
         # Detect keypoints.
         kptMode, nbFeatures = None, self._args['nbFeatures']
@@ -151,8 +155,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             kptMode = cv2.ORB_create(nfeatures=nbFeatures)
         elif self._args['kptMode'] == 'SIFT':
             kptMode = cv2.SIFT_create(nfeatures=nbFeatures)
-        kptL, dscL = kptMode.detectAndCompute(frameL, None)
-        kptR, dscR = kptMode.detectAndCompute(frameR, None)
+        kptL, dscL = kptMode.detectAndCompute(grayL, None)
+        kptR, dscR = kptMode.detectAndCompute(grayR, None)
         if len(kptL) == 0 or len(kptR) == 0:
             frame = np.ones(frameL.shape, np.uint8) # Black image.
             msg = 'KO: no keypoint'
