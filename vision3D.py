@@ -293,7 +293,7 @@ class Vision3D(QWidget):
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Left/Right).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
 
-    def updatePostFrame(self, frame, msg, fmt):
+    def updatePostFrame(self, frame, fmt, msg):
         # Update thread image.
         qtImg = self._convertCvQt(frame, fmt=fmt)
         self._imgLblPost.setPixmap(qtImg)
@@ -452,7 +452,7 @@ class Vision3D(QWidget):
         frame = np.ones(shape, np.uint8) # Black image.
         self.updateFinalFrame(frame, 0, 'left')
         self.updateFinalFrame(frame, 0, 'right')
-        self.updatePostFrame(frame, 'None', 'GRAY')
+        self.updatePostFrame(frame, 'GRAY', 'None')
 
     def _convertCvQt(self, frame, fmt='BGR'):
         # Convert frame to pixmap.

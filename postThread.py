@@ -95,14 +95,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
             # Postprocess.
             start = time.time()
-            frame, msg, fmt = np.ones(frameL.shape, np.uint8), '', 'GRAY'
+            frame, fmt, msg = np.ones(frameL.shape, np.uint8), 'GRAY', ''
             try:
                 if self._args['depth']:
-                    frame, msg, fmt = self._runDepth(frameL, frameR)
+                    frame, fmt, msg = self._runDepth(frameL, frameR)
                 elif self._args['keypoints']:
-                    frame, msg, fmt = self._runKeypoints(frameL, frameR)
+                    frame, fmt, msg = self._runKeypoints(frameL, frameR)
                 elif self._args['stitch']:
-                    frame, msg, fmt = self._runStitch(frameL, frameR)
+                    frame, fmt, msg = self._runStitch(frameL, frameR)
             except:
                 if msg == '': # Otherwise, keep more relevant message.
                     msg = 'OpenCV exception!...'
@@ -111,7 +111,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
             # Get image back to application.
             start = time.time()
-            self.signals.updatePostFrame.emit(frame, msg, fmt)
+            self.signals.updatePostFrame.emit(frame, fmt, msg)
             stop = time.time()
             self._args['updatePostFrameTime'] = stop - start
             self._args['updatePostFrameSize'] = frame.nbytes
@@ -142,7 +142,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         frame = scaledDisparity.astype(np.uint8)
         msg = 'depth (range 0-255, mean %03d, std %03d)'%(np.mean(scaledDisparity), np.std(scaledDisparity))
 
-        return frame, msg, 'GRAY'
+        return frame, 'GRAY', msg
 
     def _computeKeypoints(self, frameL, frameR):
         # To achieve more accurate results, convert frames to grayscale.
@@ -189,7 +189,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
         if len(kptL) == 0 or len(kptR) == 0 or len(bestMatches) == 0:
             frame = np.ones(frameL.shape, np.uint8) # Black image.
-            return frame, msg, 'GRAY'
+            return frame, 'GRAY', msg
 
         # Draw matches.
         frame = cv2.drawMatches(frameL, kptL, frameR, kptR, bestMatches, None)
@@ -197,7 +197,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         data = (self._args['kptMode'], minDist, len(bestMatches))
         msg = '%s keypoints (min distance %.3f, nb best matches %d)'%data
 
-        return frame, msg, 'BGR'
+        return frame, 'BGR', msg
 
     def _runStitch(self, frameL, frameR):
         # Compute keypoints.
@@ -237,7 +237,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             fmt = 'GRAY'
             msg += ' KO, not enough matches found (%d/%d)'%(len(bestMatches), minMatchCount)
 
-        return frame, msg, fmt
+        return frame, fmt, msg
 
     @staticmethod
     def _convertToGrayScale(frame):
