@@ -463,7 +463,7 @@ class Vision3D(QWidget):
             bytesPerLine = channel * displayWidth
             qtImg = QImage(rgbImg.data, displayWidth, displayHeight, bytesPerLine, QImage.Format_RGB888)
         elif fmt == 'GRAY':
-            displayHeight, displayWidth = frame.shape
+            displayHeight, displayWidth = frame.shape[0], frame.shape[1]
             channel = 1
             bytesPerLine = channel * displayWidth
             qtImg = QImage(frame, displayWidth, displayHeight, bytesPerLine, QImage.Format_Indexed8)

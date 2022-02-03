@@ -144,13 +144,13 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         return frame, msg, 'GRAY'
 
-    def _runKeypoints(self, frameL, frameR):
+    def _computeKeypoints(self, frameL, frameR):
         # To achieve more accurate results, convert frames to grayscale.
         grayL = self._convertToGrayScale(frameL)
         grayR = self._convertToGrayScale(frameR)
 
         # Detect keypoints.
-        kptMode, nbFeatures = None, self._args['nbFeatures']
+        kptMode, nbFeatures, msg = None, self._args['nbFeatures'], ''
         if self._args['kptMode'] == 'ORB':
             kptMode = cv2.ORB_create(nfeatures=nbFeatures)
         elif self._args['kptMode'] == 'SIFT':
@@ -158,9 +158,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         kptL, dscL = kptMode.detectAndCompute(grayL, None)
         kptR, dscR = kptMode.detectAndCompute(grayR, None)
         if len(kptL) == 0 or len(kptR) == 0:
-            frame = np.ones(frameL.shape, np.uint8) # Black image.
             msg = 'KO: no keypoint'
-            return frame, msg, 'GRAY'
+            return kptL, kptR, [], msg
 
         # Match keypoints.
         norm = None
@@ -170,6 +169,9 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             norm = cv2.NORM_L2 # Better for SIFT.
         bf = cv2.BFMatcher(norm, crossCheck=False) # Need crossCheck=False for knnMatch.
         matches = bf.knnMatch(dscL, dscR, k=2) # knnMatch crucial to get 2 matches m1 and m2.
+        if len(matches) == 0:
+            msg = 'KO: no match'
+            return kptL, kptR, matches, msg
 
         # To keep only strong matches.
         bestMatches = []
@@ -177,36 +179,65 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             if m1.distance < 0.6 * m2.distance: # Best match has to be closer than second best.
                 bestMatches.append(m1) # Lowe’s ratio test.
         if len(bestMatches) == 0:
+            msg = 'KO: no best match'
+            return kptL, kptR, bestMatches, msg
+
+        return kptL, kptR, bestMatches, msg
+
+    def _runKeypoints(self, frameL, frameR):
+        # Compute keypoints.
+        kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
+        if len(kptL) == 0 or len(kptR) == 0 or len(bestMatches) == 0:
             frame = np.ones(frameL.shape, np.uint8) # Black image.
-            msg = 'KO: no match'
             return frame, msg, 'GRAY'
 
         # Draw matches.
         frame = cv2.drawMatches(frameL, kptL, frameR, kptR, bestMatches, None)
         minDist = np.min([match.distance for match in bestMatches])
-        data = (self._args['kptMode'], minDist, len(matches))
-        msg = '%s keypoints (min distance %.3f, nb matches %d)'%data
+        data = (self._args['kptMode'], minDist, len(bestMatches))
+        msg = '%s keypoints (min distance %.3f, nb best matches %d)'%data
 
         return frame, msg, 'BGR'
 
     def _runStitch(self, frameL, frameR):
-        # Stitch frames.
-        status, frame = self._stitcher.stitch([frameL, frameR])
-        self._args['stitchStatus'] = status
-        msg = 'stitch'
-        if status != cv2.Stitcher_OK:
-            frame = np.ones(frameL.shape, np.uint8) # Black image.
-            msg += ' KO'
-            if status == cv2.Stitcher_ERR_NEED_MORE_IMGS:
-                msg += ': not enough keypoints detected'
-            elif status == cv2.Stitcher_ERR_HOMOGRAPHY_EST_FAIL:
-                msg += ': RANSAC homography estimation failed'
-            elif status == cv2.Stitcher_ERR_CAMERA_PARAMS_ADJUST_FAIL:
-                msg += ': failing to properly estimate camera features'
-        else:
-            msg += ' OK'
+        # Compute keypoints.
+        kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
 
-        return frame, msg, 'BGR'
+        # Stitch images.
+        frame, fmt, msg = None, None, 'stitch'
+        minMatchCount = 10 # Need at least 10 points to find homography.
+        if len(bestMatches) > minMatchCount:
+            # Find homography (RANSAC).
+            srcPts = np.float32([kptL[match.queryIdx].pt for match in bestMatches]).reshape(-1, 1, 2)
+            dstPts = np.float32([kptR[match.trainIdx].pt for match in bestMatches]).reshape(-1, 1, 2)
+            homo, mask = cv2.findHomography(srcPts, dstPts, cv2.RANSAC, 5.0)
+
+            # Warp perspective: change field of view.
+            rowsL, colsL = frameL.shape[:2]
+            rowsR, colsR = frameR.shape[:2]
+            lsPtsL = np.float32([[0,0], [0, rowsL], [colsL, rowsL], [colsL, 0]]).reshape(-1, 1, 2)
+            lsPtsR = np.float32([[0,0], [0, rowsR], [colsR, rowsR], [colsR, 0]]).reshape(-1, 1, 2)
+            lsPtsR = cv2.perspectiveTransform(lsPtsR, homo)
+
+            # Stitch images.
+            lsPts = np.concatenate((lsPtsL, lsPtsR), axis=0)
+            [xMin, yMin] = np.int32(lsPts.min(axis=0).ravel() - 0.5)
+            [xMax, yMax] = np.int32(lsPts.max(axis=0).ravel() + 0.5)
+            transDist = [-xMin, -yMin] # Translation distance.
+            homoTranslation = np.array([[1, 0, transDist[0]], [0, 1, transDist[1]], [0, 0, 1]])
+            frame = cv2.warpPerspective(frameR, homoTranslation.dot(homo), (xMax-xMin, yMax-yMin))
+            frame[transDist[1]:rowsL+transDist[1], transDist[0]:colsL+transDist[0]] = frameL
+            fmt = 'BGR'
+            msg += ' OK with %d best matches'%len(bestMatches)
+
+            # Resize frame to initial frame size (to avoid huge change of dimensions that may occur).
+            frame = cv2.resize(frame, (colsL, rowsR), interpolation = cv2.INTER_LINEAR)
+        else:
+            frame = np.ones(frameL.shape, np.uint8) # Black image.
+            fmt = 'GRAY'
+            msg += ' KO, not enough matches found (%d/%d)'%(len(bestMatches), minMatchCount)
+
+        return frame, msg, fmt
 
     @staticmethod
     def _convertToGrayScale(frame):
