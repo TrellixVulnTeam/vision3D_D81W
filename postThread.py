@@ -215,8 +215,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             # Warp perspective: change field of view.
             rowsL, colsL = frameL.shape[:2]
             rowsR, colsR = frameR.shape[:2]
-            lsPtsL = np.float32([[0,0], [0, rowsL], [colsL, rowsL], [colsL, 0]]).reshape(-1, 1, 2)
-            lsPtsR = np.float32([[0,0], [0, rowsR], [colsR, rowsR], [colsR, 0]]).reshape(-1, 1, 2)
+            lsPtsL = np.float32([[0, 0], [0, rowsL], [colsL, rowsL], [colsL, 0]]).reshape(-1, 1, 2)
+            lsPtsR = np.float32([[0, 0], [0, rowsR], [colsR, rowsR], [colsR, 0]]).reshape(-1, 1, 2)
             lsPtsR = cv2.perspectiveTransform(lsPtsR, homo)
 
             # Stitch images.
