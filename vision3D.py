@@ -195,7 +195,7 @@ class Vision3D(QWidget):
         # Update thread label.
         txtLbl = self._txtLblLeft if side == 'left' else self._txtLblRight
         txt = txtLbl.text()
-        lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Left/Right).
+        lbl = txt.split()[0] # Suppress old FPS: get first word (title).
         txtLbl.setText(lbl + ' - FPS %d'%fps)
 
     def updatePostFrame(self, frame, fmt, msg):
