@@ -86,8 +86,6 @@ class Vision3DRadioButtonDetection(QWidget):
     def __init__(self, param, parent=None):
         # Initialise.
         super().__init__(parent)
-        self.rdoBoxNone = QRadioButton('None')
-        self.rdoBoxNone.mode = 'None'
         self.rdoBoxYOLO = QRadioButton('YOLO')
         self.rdoBoxYOLO.mode = 'YOLO'
         self.rdoBoxSSD = QRadioButton('SSD')
@@ -96,7 +94,6 @@ class Vision3DRadioButtonDetection(QWidget):
         self._vision3D = parent
         grpBtn = QButtonGroup(parent)
         grpBtn.setExclusive(True) # Make radio button exclusive.
-        grpBtn.addButton(self.rdoBoxNone)
         grpBtn.addButton(self.rdoBoxYOLO)
         grpBtn.addButton(self.rdoBoxSSD)
 
@@ -187,8 +184,9 @@ class Vision3D(QWidget):
         # Start threads.
         self._createThreads()
 
-    def updateFinalFrame(self, frame, fps, side):
+    def updatePrepFrame(self, frame, dct):
         # Update thread image.
+        side = dct['side']
         imgLbl = self._imgLblLeft if side == 'left' else self._imgLblRight
         qtImg = self._convertCvQt(frame)
         imgLbl.setPixmap(qtImg)
@@ -197,7 +195,7 @@ class Vision3D(QWidget):
         txtLbl = self._txtLblLeft if side == 'left' else self._txtLblRight
         txt = txtLbl.text()
         lbl = txt.split()[0] # Suppress old FPS: get first word (title).
-        txtLbl.setText(lbl + ' - FPS %d'%fps)
+        txtLbl.setText(lbl + ' - FPS %d'%dct['fps'])
 
     def updatePostFrame(self, frame, fmt, msg):
         # Update thread image.
@@ -218,7 +216,6 @@ class Vision3D(QWidget):
             self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(True)
             self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(True)
             self.v3DRdoBtnMode.rdoBoxStr.setEnabled(True)
-            self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(True)
             self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(True)
             self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(True)
             for v3DEdt in self._guiCtrParams:
@@ -231,7 +228,6 @@ class Vision3D(QWidget):
         self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
         self.v3DRdoBtnMode.rdoBoxStr.setEnabled(False)
-        self.v3DRdoBtnDetect.rdoBoxNone.setEnabled(False)
         self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(False)
         self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(False)
         for v3DEdt in self._guiCtrParams:
@@ -282,12 +278,6 @@ class Vision3D(QWidget):
                                        enable=True, objType='double', tooltip=tooltip)
         self._args['ROI'] = False
         self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
-        self._args['detection'] = 'None'
-        self._createRdoButDetection(grpBoxLay, 'detection', 0, 20)
-        self._args['confidence'] = 0.5
-        self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
-        self._args['nms'] = 0.3
-        self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
         self._createChkBoxParametersPost(grpBoxLay)
         self._args['DBGcapt'] = False
         self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 27)
@@ -353,23 +343,39 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxUnd, row+2, col)
         grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxStr, row+3, col)
 
-    def _createRdoButDetection(self, grpBoxLay, param, row, col):
+    def _createChkBoxParametersPostDetection(self, grpBoxLay, row, col):
         # Create GUI for detection.
-        lbl = QLabel(param)
-        self.v3DRdoBtnDetect = Vision3DRadioButtonDetection(param, parent=self)
-        self.v3DRdoBtnDetect.rdoBoxNone.setChecked(True)
-        self.v3DRdoBtnDetect.rdoBoxYOLO.setChecked(False)
+        self._args['detectMode'] = 'YOLO'
+        self.v3DRdoBtnDetect = Vision3DRadioButtonDetection('detectMode', parent=self)
+        self.v3DRdoBtnDetect.rdoBoxYOLO.setChecked(True)
         self.v3DRdoBtnDetect.rdoBoxSSD.setChecked(False)
-        self.v3DRdoBtnDetect.rdoBoxNone.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
         self.v3DRdoBtnDetect.rdoBoxYOLO.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
         self.v3DRdoBtnDetect.rdoBoxSSD.toggled.connect(self.v3DRdoBtnDetect.onParameterChanged)
-        grpBoxLay.addWidget(lbl, row, col+0)
-        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxNone, row, col+1)
-        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxYOLO, row, col+2)
-        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxSSD, row, col+3)
+        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxYOLO, row, col+0)
+        grpBoxLay.addWidget(self.v3DRdoBtnDetect.rdoBoxSSD, row, col+1)
+        self._args['confidence'] = 0.5
+        self._createEditParameters(grpBoxLay, 'confidence', row, col+2, enable=True, objType='double')
+        self._args['nms'] = 0.3
+        self._createEditParameters(grpBoxLay, 'nms', row, col+3, enable=True, objType='double')
+
+    def _createChkBoxParametersPostKeypoints(self, grpBoxLay, row, col):
+        # Create GUI for keypoints.
+        self._args['kptMode'] = 'ORB'
+        self.v3DRdoBtnKpt = Vision3DRadioButtonKeyPoints('kptMode', parent=self)
+        self.v3DRdoBtnKpt.rdoBoxORB.setChecked(True)
+        self.v3DRdoBtnKpt.rdoBoxSIFT.setChecked(False)
+        self.v3DRdoBtnKpt.rdoBoxORB.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
+        self.v3DRdoBtnKpt.rdoBoxSIFT.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
+        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxORB, row, col+0)
+        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxSIFT, row, col+1)
+        self._args['nbFeatures'] = 100
+        self._createEditParameters(grpBoxLay, 'nbFeatures', row, col+2, enable=True, objType='int')
 
     def _createChkBoxParametersPost(self, grpBoxLay):
         # Create GUI for postprocessing.
+        self._args['detection'] = False
+        detectChkBox = self._createChkBoxParameters(grpBoxLay, 'detection', 0, 10)
+        self._createChkBoxParametersPostDetection(grpBoxLay, 0, 22)
         self._args['depth'] = False
         depthChkBox = self._createChkBoxParameters(grpBoxLay, 'depth', 1, 10)
         self._args['numDisparities'] = 16
@@ -378,22 +384,14 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
         self._args['keypoints'] = False
         kptChkBox = self._createChkBoxParameters(grpBoxLay, 'keypoints', 2, 10)
-        self._args['kptMode'] = 'ORB'
-        self.v3DRdoBtnKpt = Vision3DRadioButtonKeyPoints('kptMode', parent=self)
-        self.v3DRdoBtnKpt.rdoBoxORB.setChecked(True)
-        self.v3DRdoBtnKpt.rdoBoxSIFT.setChecked(False)
-        self.v3DRdoBtnKpt.rdoBoxORB.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
-        self.v3DRdoBtnKpt.rdoBoxSIFT.toggled.connect(self.v3DRdoBtnKpt.onParameterChanged)
-        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxORB, 2, 22)
-        grpBoxLay.addWidget(self.v3DRdoBtnKpt.rdoBoxSIFT, 2, 23)
-        self._args['nbFeatures'] = 100
-        self._createEditParameters(grpBoxLay, 'nbFeatures', 2, 24, enable=True, objType='int')
+        self._createChkBoxParametersPostKeypoints(grpBoxLay, 2, 22)
         self._args['stitch'] = False
         stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
         self._args['crop'] = False
         cropChkBox = self._createChkBoxParameters(grpBoxLay, 'crop', 3, 11)
         grpBtn = QButtonGroup(self)
         grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(detectChkBox.gui)
         grpBtn.addButton(depthChkBox.gui)
         grpBtn.addButton(kptChkBox.gui)
         grpBtn.addButton(stitchChkBox.gui)
@@ -434,12 +432,12 @@ class Vision3D(QWidget):
         self._threadPool.setMaxThreadCount(3)
         videoIDLeft = args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self)
-        self._threadLeft.signals.updateFinalFrame.connect(self.updateFinalFrame)
+        self._threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
         self._threadLeft.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadLeft)
         videoIDRight = args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self)
-        self._threadRight.signals.updateFinalFrame.connect(self.updateFinalFrame)
+        self._threadRight.signals.updatePrepFrame.connect(self.updatePrepFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadRight)
         self._threadPost = PostThread(self._args, self._threadLeft, self._threadRight, self)
@@ -467,8 +465,8 @@ class Vision3D(QWidget):
         # Black out frames.
         shape = (displayHeight, displayWidth)
         frame = np.ones(shape, np.uint8) # Black image.
-        self.updateFinalFrame(frame, 0, 'left')
-        self.updateFinalFrame(frame, 0, 'right')
+        self.updatePrepFrame(frame, {'fps': 0, 'side': 'left'})
+        self.updatePrepFrame(frame, {'fps': 0, 'side': 'right'})
         self.updatePostFrame(frame, 'GRAY', 'None')
 
     def _convertCvQt(self, frame, fmt='BGR'):

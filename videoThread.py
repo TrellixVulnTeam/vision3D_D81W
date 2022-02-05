@@ -16,8 +16,7 @@ logger = logging.getLogger('capt')
 
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    updatePrepFrame = pyqtSignal(np.ndarray, str) # Update preprocessed frame (after undistort / stereo).
-    updateFinalFrame = pyqtSignal(np.ndarray, int, str) # Update final frame (with detections).
+    updatePrepFrame = pyqtSignal(np.ndarray, dict) # Update preprocessed frame (after undistort / stereo).
     calibrationDone = pyqtSignal(int, bool)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
@@ -75,22 +74,6 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         msg += ' side %s-%02d (stereo %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
         msg += ', file %s (stereo %s)'%(fname, fnameStr)
         logger.info(msg)
-
-        # Set up detection.
-        labels = open('coco.names').read().strip().split("\n") # Load the COCO class labels.
-        np.random.seed(42) # Initialize colors to represent each possible class label.
-        colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
-        self._detect = {'YOLO': {}, 'SSD': {}}
-        self._setupYOLO(labels, colors)
-        self._setupSSD(labels, colors)
-        for key in self._detect:
-            net = self._detect[key]['net']
-            if self._args['hardware'] == 'arm-jetson':
-                net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
-                net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
-            else:
-                net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
-                net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
     def onParameterChanged(self, param, objType, value):
         # Lots of events may be spawned: check impact is needed.
@@ -362,27 +345,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
 
             # Get image back to application.
             start = time.time()
-            self.signals.updatePrepFrame.emit(frame, self._cal['side'])
+            dct = {'fps': fps, 'side': self._cal['side']}
+            self.signals.updatePrepFrame.emit(frame, dct)
             stop = time.time()
             self._args['updatePrepFrameTime'] = stop - start
             self._args['updatePrepFrameSize'] = frame.nbytes
-
-            # Run detection on demand.
-            for key in ['detectHits', 'detectTime', 'dnnTime']:
-                if key in self._args:
-                    del self._args[key]
-            if self._args['detection'] != 'None':
-                start = time.time()
-                self._runDetection(frame)
-                stop = time.time()
-                self._args['detectTime'] = stop - start
-
-            # Get image back to application.
-            start = time.time()
-            self.signals.updateFinalFrame.emit(frame, fps, self._cal['side'])
-            stop = time.time()
-            self._args['updateFinalFrameTime'] = stop - start
-            self._args['updateFinalFrameSize'] = frame.nbytes
         return fps
 
     def _runCalibration(self):
@@ -418,131 +385,15 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                 msg += ', alpha %.3f'%self._args['alpha']
                 msg += ', CAL %s'%self._args['CAL']
             msg += ', ROI %s'%self._args['ROI']
-            msg += ', detect %4s'%self._args['detection']
-            if self._args['detection'] != 'None':
-                msg += ', conf %.3f'%self._args['confidence']
-                msg += ', nms %.3f'%self._args['nms']
-                if 'detectHits' in self._args:
-                    msg += ', detectHits %d'%self._args['detectHits']
         if self._args['DBGprof']:
             msg += ', mode %s'%self._args['mode']
             if 'undistortTime' in self._args:
                 msg += ', undistortTime %.3f'%self._args['undistortTime']
-            msg += ', detect %4s'%self._args['detection']
-            if 'detectTime' in self._args:
-                msg += ', detectTime %.3f'%self._args['detectTime']
-            if 'dnnTime' in self._args:
-                msg += ', dnnTime %.3f'%self._args['dnnTime']
         if self._args['DBGcomm']:
             msg += ', comm'
-            for key in ['updatePrepFrameTime', 'updateFinalFrameTime']:
-                if key in self._args:
-                    msg += ', %s %.3f'%(key, self._args[key])
-            for key in ['updatePrepFrameSize', 'updateFinalFrameSize']:
-                if key in self._args:
-                    msg += ', %s %d'%(key, self._args[key])
+            key = 'updatePrepFrameTime'
+            msg += ', %s %.3f'%(key, self._args[key])
+            key = 'updatePrepFrameSize'
+            msg += ', %s %d'%(key, self._args[key])
 
         return msg
-
-    def _setupYOLO(self, labels, colors):
-        # Load our YOLO object detector trained on COCO dataset (80 classes).
-        net = cv2.dnn.readNetFromDarknet('yolov3-tiny.cfg', 'yolov3-tiny.weights')
-
-        # Determine only the *output* layer names that we need.
-        ln = net.getLayerNames()
-        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
-
-        # Remind YOLO setup.
-        self._detect['YOLO']['labels'] = labels
-        self._detect['YOLO']['colors'] = colors
-        self._detect['YOLO']['net'] = net
-        self._detect['YOLO']['ln'] = ln
-
-    def _setupSSD(self, labels, colors):
-        # Load our SSD object detector.
-        protoTxt = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
-                                'coco', 'SSD_512x512', 'deploy.prototxt')
-        caffemodel = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
-                                  'coco', 'SSD_512x512', 'VGG_coco_SSD_512x512_iter_360000.caffemodel')
-        net = cv2.dnn.readNetFromCaffe(protoTxt, caffemodel)
-
-        # Determine only the *output* layer names that we need.
-        ln = net.getLayerNames()
-        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
-
-        # Remind SSD setup.
-        self._detect['SSD']['labels'] = labels
-        self._detect['SSD']['colors'] = colors
-        self._detect['SSD']['net'] = net
-        self._detect['SSD']['ln'] = ln
-
-    def _runDetection(self, frame):
-        # Construct a blob from the input frame.
-        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
-
-        # Perform a forward pass of the YOLO object detector.
-        detectMode = self._args['detection']
-        if detectMode not in self._detect:
-            return # Nothing to do.
-        detect = self._detect[detectMode]
-        net, ln = detect['net'], detect['ln']
-        net.setInput(blob)
-        start = time.time()
-        layerOutputs = net.forward(ln)
-        stop = time.time()
-        self._args['dnnTime'] = stop - start
-
-        # Initialize our lists of detected bounding boxes, confidences, and class IDs.
-        boxes, confidences, classIDs = [], [], []
-
-        # Loop over each of the layer outputs.
-        height, width = frame.shape[:2]
-        for output in layerOutputs:
-            # Loop over each of the detections.
-            for detection in output:
-                # Extract the class ID and confidence (i.e., probability) of the current detection.
-                scores = detection[5:]
-                if len(scores) == 0:
-                    continue
-                classID = np.argmax(scores)
-                confidence = scores[classID]
-
-                # Filter out weak predictions by ensuring the detected probability is greater than the minimum probability.
-                if confidence > self._args['confidence']:
-                    # Scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO
-                    # returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height.
-                    box = detection[0:4] * np.array([width, height, width, height])
-                    boxCenterX, boxCenterY, boxWidth, boxHeight = box.astype("int")
-
-                    # Use the center (x, y)-coordinates to derive the top and and left corner of the bounding box.
-                    boxCenterX = int(boxCenterX - (boxWidth / 2))
-                    boxCenterY = int(boxCenterY - (boxHeight / 2))
-
-                    # Update our list of bounding box coordinates, confidences, and class IDs
-                    boxes.append([boxCenterX, boxCenterY, int(boxWidth), int(boxHeight)])
-                    confidences.append(float(confidence))
-                    classIDs.append(classID)
-
-        # Check if we have detected some objects.
-        self._args['detectHits'] = len(boxes)
-        if len(boxes) == 0:
-            return
-
-        # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
-        idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
-        self._args['detectHits'] = len(idxs)
-
-        # Ensure at least one detection exists.
-        colors, labels = detect['colors'], detect['labels']
-        if len(idxs) > 0:
-            # Loop over the indexes we are keeping.
-            for idx in idxs.flatten():
-                # Extract the bounding box coordinates.
-                (boxCenterX, boxCenterY) = (boxes[idx][0], boxes[idx][1])
-                (boxWidth, boxHeight) = (boxes[idx][2], boxes[idx][3])
-
-                # Draw a bounding box rectangle and label on the frame.
-                color = [int(clr) for clr in colors[classIDs[idx]]]
-                cv2.rectangle(frame, (boxCenterX, boxCenterY), (boxCenterX + boxWidth, boxCenterY + boxHeight), color, 2)
-                text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
-                cv2.putText(frame, text, (boxCenterX, boxCenterY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
