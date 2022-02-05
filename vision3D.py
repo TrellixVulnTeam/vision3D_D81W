@@ -464,7 +464,6 @@ class Vision3D(QWidget):
         self._imgLblPost.resize(displayWidth, displayHeight)
 
         # Black out frames.
-        displayHeight, displayWidth = self._getFrameSize()
         shape = (displayHeight, displayWidth)
         frame = np.ones(shape, np.uint8) # Black image.
         self.updateFinalFrame(frame, 0, 'left')
