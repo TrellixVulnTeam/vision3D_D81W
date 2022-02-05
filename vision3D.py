@@ -441,7 +441,7 @@ class Vision3D(QWidget):
         self._threadRight.signals.updateFinalFrame.connect(self.updateFinalFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadRight)
-        self._threadPost = PostThread(self._args, self, self._threadLeft, self._threadRight)
+        self._threadPost = PostThread(self._args, self._threadLeft, self._threadRight, self)
         self._threadPost.signals.updatePostFrame.connect(self.updatePostFrame)
         self._threadPool.start(self._threadPost)
 

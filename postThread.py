@@ -16,7 +16,7 @@ class PostThreadSignals(QObject):
     updatePostFrame = pyqtSignal(np.ndarray, str, str) # Update postprocessed frame (depth, ...).
 
 class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
-    def __init__(self, args, vision3D, threadLeft, threadRight):
+    def __init__(self, args, threadLeft, threadRight, vision3D):
         # Initialise.
         super().__init__()
         self._args = args.copy()
