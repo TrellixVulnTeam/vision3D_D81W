@@ -146,67 +146,13 @@ class Vision3D(QWidget):
         # Initialise.
         super().__init__()
         self.setWindowTitle('Vision3D')
+        self._args = args.copy()
 
         # Set up info/debug log on demand.
         logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
-        # Create parameters.
-        self._args = args.copy()
-        grpBox = QGroupBox('Parameters')
-        grpBoxLay = QGridLayout()
-        grpBox.setLayout(grpBoxLay)
-        self._guiCtrParams = [] # All GUIs with controls.
-        self._createEditParameters(grpBoxLay, 'videoCapWidth', 1, 0)
-        self._createEditParameters(grpBoxLay, 'videoCapHeight', 1, 1)
-        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 2)
-        if self._args['hardware'] == 'arm-jetson':
-            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 2, 0)
-            self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
-            self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
-        self._args['mode'] = 'raw'
-        self._createRdoButMode(grpBoxLay, 'mode', 0, 6)
-        if self._args['fisheye']:
-            tooltip = 'Divisor for new focal length.'
-            self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpan=2, colSpan=1,
-                                       enable=True, objType='double', tooltip=tooltip)
-            tooltip = 'Sets the new focal length in range between the min focal length and the max\n'
-            tooltip += 'focal length. Balance is in range of [0, 1].'
-            self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpan=2, colSpan=1,
-                                       enable=True, objType='double', tooltip=tooltip)
-        else:
-            self._args['CAL'] = False
-            self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7, triggerDisable=True)
-            tooltip = 'Free scaling parameter between 0 and 1.\n'
-            tooltip += '  - 0: rectified images are zoomed and shifted so\n'
-            tooltip += '       that only valid pixels are visible: no black areas after rectification\n'
-            tooltip += '  - 1: rectified image is decimated and shifted so that all the pixels from the\n'
-            tooltip += '       original images from the cameras are retained in the rectified images:\n'
-            tooltip += '       no source image pixels are lost.\n'
-            tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
-            tooltip += 'If negative, the function performs the default scaling.'
-            self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
-                                       enable=True, objType='double', tooltip=tooltip)
-        self._args['ROI'] = False
-        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
-        self._args['detection'] = 'None'
-        self._createRdoButDetection(grpBoxLay, 'detection', 0, 20)
-        self._args['confidence'] = 0.5
-        self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
-        self._args['nms'] = 0.3
-        self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
-        self._createChkBoxParametersPost(grpBoxLay)
-        self._args['DBGcapt'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 27)
-        self._args['DBGpost'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 2, 27)
-        self._args['DBGrun'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGrun', 1, 28)
-        self._args['DBGprof'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGprof', 2, 28)
-        self._args['DBGcomm'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGcomm', 3, 28)
-
         # Create widgets.
+        grpBox = self._createParameters()
         self._imgLblLeft = QLabel()
         self._txtLblLeft = QLabel('Left')
         self._imgLblRight = QLabel()
@@ -216,8 +162,6 @@ class Vision3D(QWidget):
         self._resetLabels()
 
         # Handle alignment.
-        grpBox.setAlignment(Qt.AlignCenter)
-        grpBoxLay.setAlignment(Qt.AlignCenter)
         self._txtLblLeft.setAlignment(Qt.AlignCenter)
         self._imgLblLeft.setAlignment(Qt.AlignCenter)
         self._txtLblRight.setAlignment(Qt.AlignCenter)
@@ -337,6 +281,68 @@ class Vision3D(QWidget):
         self.signals.stop.emit() # Warn threads to stop.
         self._threadPool.waitForDone() # Wait for threads to stop.
         event.accept()
+
+    def _createParameters(self):
+        # Create parameters.
+        grpBox = QGroupBox('Parameters')
+        grpBoxLay = QGridLayout()
+        grpBox.setLayout(grpBoxLay)
+        self._guiCtrParams = [] # All GUIs with controls.
+        self._createEditParameters(grpBoxLay, 'videoCapWidth', 1, 0)
+        self._createEditParameters(grpBoxLay, 'videoCapHeight', 1, 1)
+        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 2)
+        if self._args['hardware'] == 'arm-jetson':
+            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 2, 0)
+            self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
+            self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
+        self._args['mode'] = 'raw'
+        self._createRdoButMode(grpBoxLay, 'mode', 0, 6)
+        if self._args['fisheye']:
+            tooltip = 'Divisor for new focal length.'
+            self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+            tooltip = 'Sets the new focal length in range between the min focal length and the max\n'
+            tooltip += 'focal length. Balance is in range of [0, 1].'
+            self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+        else:
+            self._args['CAL'] = False
+            self._createChkBoxParameters(grpBoxLay, 'CAL', 3, 7, triggerDisable=True)
+            tooltip = 'Free scaling parameter between 0 and 1.\n'
+            tooltip += '  - 0: rectified images are zoomed and shifted so\n'
+            tooltip += '       that only valid pixels are visible: no black areas after rectification\n'
+            tooltip += '  - 1: rectified image is decimated and shifted so that all the pixels from the\n'
+            tooltip += '       original images from the cameras are retained in the rectified images:\n'
+            tooltip += '       no source image pixels are lost.\n'
+            tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
+            tooltip += 'If negative, the function performs the default scaling.'
+            self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
+                                       enable=True, objType='double', tooltip=tooltip)
+        self._args['ROI'] = False
+        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
+        self._args['detection'] = 'None'
+        self._createRdoButDetection(grpBoxLay, 'detection', 0, 20)
+        self._args['confidence'] = 0.5
+        self._createEditParameters(grpBoxLay, 'confidence', 0, 24, enable=True, objType='double')
+        self._args['nms'] = 0.3
+        self._createEditParameters(grpBoxLay, 'nms', 0, 25, enable=True, objType='double')
+        self._createChkBoxParametersPost(grpBoxLay)
+        self._args['DBGcapt'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 27)
+        self._args['DBGpost'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 2, 27)
+        self._args['DBGrun'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGrun', 1, 28)
+        self._args['DBGprof'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGprof', 2, 28)
+        self._args['DBGcomm'] = False
+        self._createChkBoxParameters(grpBoxLay, 'DBGcomm', 3, 28)
+
+        # Handle alignment.
+        grpBox.setAlignment(Qt.AlignCenter)
+        grpBoxLay.setAlignment(Qt.AlignCenter)
+
+        return grpBox
 
     def _createEditParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1,
                               enable=False, objType='int', tooltip=None):
