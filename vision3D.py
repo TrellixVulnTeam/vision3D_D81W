@@ -21,6 +21,7 @@ from videoStream import cmdLineArgsVideoStream
 from calibrate import cmdLineArgsCalibrate
 import logging
 
+# Logger.
 logger = logging.getLogger()
 
 class Vision3DEdit(QWidget):
