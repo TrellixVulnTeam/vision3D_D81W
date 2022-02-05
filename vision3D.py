@@ -389,6 +389,8 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'nbFeatures', 2, 24, enable=True, objType='int')
         self._args['stitch'] = False
         stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
+        self._args['crop'] = False
+        cropChkBox = self._createChkBoxParameters(grpBoxLay, 'crop', 3, 11)
         grpBtn = QButtonGroup(self)
         grpBtn.setExclusive(True) # Make radio button exclusive.
         grpBtn.addButton(depthChkBox.gui)

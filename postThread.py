@@ -230,6 +230,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             fmt = 'BGR'
             msg += ' OK with %d best matches'%len(bestMatches)
 
+            # Crop on demand.
+            if self._args['crop']:
+                frame = self._cropFrame(frame)
+
             # Resize frame to initial frame size (to avoid huge change of dimensions that may occur).
             frame = cv2.resize(frame, (colsL, rowsR), interpolation = cv2.INTER_LINEAR)
         else:
@@ -238,6 +242,39 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             msg += ' KO, not enough matches found (%d/%d)'%(len(bestMatches), minMatchCount)
 
         return frame, fmt, msg
+
+    @staticmethod
+    def _cropFrame(frame):
+        # Add black borders around frame to ease thresholding.
+        frame = cv2.copyMakeBorder(frame, 10, 10, 10, 10, cv2.BORDER_CONSTANT, (0, 0, 0))
+
+        # Thresholding (gray scale).
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        thrFrame = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+
+        # Find biggest contour in thresholded frame.
+        cnts, _ = cv2.findContours(thrFrame.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        roiArea = max(cnts, key=cv2.contourArea)
+        mask = np.zeros(thrFrame.shape, dtype="uint8")
+        xCenter, yCenter, width, height = cv2.boundingRect(roiArea)
+        cv2.rectangle(mask, (xCenter, yCenter), (xCenter + width, yCenter + height), 255, -1)
+
+        # Find best Region Of Interest (ROI).
+        roiMinRectangle = mask.copy()
+        sub = mask.copy()
+        while cv2.countNonZero(sub) > 0:
+            roiMinRectangle = cv2.erode(roiMinRectangle, None)
+            sub = cv2.subtract(roiMinRectangle, thrFrame)
+
+        # Get best Region Of Interest (ROI).
+        cnts, _ = cv2.findContours(roiMinRectangle.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        roiArea = max(cnts, key=cv2.contourArea)
+
+        # Crop.
+        xCenter, yCenter, width, height = cv2.boundingRect(roiArea)
+        frame = frame[yCenter:yCenter + height, xCenter:xCenter + width]
+
+        return frame
 
     @staticmethod
     def _convertToGrayScale(frame):
@@ -266,8 +303,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 msg += ', kptMode %s'%self._args['kptMode']
                 msg += ', nbFeatures %d'%self._args['nbFeatures']
             msg += ', stitch %s'%self._args['stitch']
-            if self._args['stitch'] and 'stitchStatus' in self._args:
-                msg += ', stitchStatus %s'%self._args['stitchStatus']
+            if self._args['stitch']:
+                msg += ', crop %s'%self._args['crop']
         if self._args['DBGprof']:
             if self._args['depth']:
                 msg += ', depth'
