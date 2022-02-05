@@ -20,16 +20,18 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Initialise.
         super().__init__()
         self._args = args.copy()
-        vision3D.signals.changeParam.connect(self.onParameterChanged)
-        vision3D.signals.stop.connect(self.stop)
-        threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
-        threadRight.signals.updatePrepFrame.connect(self.updatePrepFrame)
         self._run = True
         self._post = {'left': None, 'right': None}
         self._postLock = threading.Lock()
         self.signals = PostThreadSignals()
         self._stereo = None
         self._stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)
+
+        # Event subscribe.
+        threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
+        threadRight.signals.updatePrepFrame.connect(self.updatePrepFrame)
+        vision3D.signals.changeParam.connect(self.onParameterChanged)
+        vision3D.signals.stop.connect(self.stop)
 
         # Set up info/debug log on demand.
         logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)

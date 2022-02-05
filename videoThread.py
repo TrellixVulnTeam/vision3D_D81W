@@ -28,12 +28,14 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         self._args['videoID'] = vidID
         self._needCalibration = False
         self._args['roiCam'] = False # Initialise ROI (raw mode).
-        vision3D.signals.changeParam.connect(self.onParameterChanged)
-        vision3D.signals.stop.connect(self.stop)
         self._run = True
         self._vid = VideoStream(self._args)
         self.vidID = vidID
         self.signals = VideoThreadSignals()
+
+        # Event subscribe.
+        vision3D.signals.changeParam.connect(self.onParameterChanged)
+        vision3D.signals.stop.connect(self.stop)
 
         # Get camera calibration parameters from target camera.
         self._cal = {}
