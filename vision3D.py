@@ -180,32 +180,8 @@ class Vision3D(QWidget):
         grdLay.addWidget(self._imgLblPost, 4, 0, 1, 2)
         self.setLayout(grdLay)
 
-        # Download COCO dataset labels.
-        if not os.path.isfile('coco.names'):
-            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
-        else:
-            logger.info('[vision3D] coco.names has already been downloaded.')
-
-        # Download YOLO files.
-        if not os.path.isfile('yolov3-tiny.weights'):
-            wget.download('https://pjreddie.com/media/files/yolov3-tiny.weights')
-        else:
-            logger.info('[vision3D] yolov3-tiny.weights has already been downloaded.')
-        if not os.path.isfile('yolov3-tiny.cfg'):
-            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg')
-        else:
-            logger.info('[vision3D] yolov3-tiny.cfg has already been downloaded.')
-
-        # Download Model COCO SSD512 file: https://github.com/weiliu89/caffe/tree/ssd (fork from BVLC/caffe).
-        if not os.path.isfile('models_VGGNet_coco_SSD_512x512.tar.gz'):
-            gdd.download_file_from_google_drive(file_id='0BzKzrI_SkD1_dlJpZHJzOXd3MTg',
-                                                dest_path='./models_VGGNet_coco_SSD_512x512.tar.gz',
-                                                showsize=True, unzip=False)
-            tgz = tarfile.open('models_VGGNet_coco_SSD_512x512.tar.gz')
-            tgz.extractall('./models_VGGNet_coco_SSD_512x512')
-            tgz.close()
-        else:
-            logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
+        # Download DNN pretrained models.
+        self._downloadDNNPreTrainedModels()
 
         # Start threads.
         self.signals = Vision3DSignals()
@@ -433,6 +409,35 @@ class Vision3D(QWidget):
         grpBtn.addButton(depthChkBox.gui)
         grpBtn.addButton(kptChkBox.gui)
         grpBtn.addButton(stitchChkBox.gui)
+
+    @staticmethod
+    def _downloadDNNPreTrainedModels():
+        # Download COCO dataset labels.
+        if not os.path.isfile('coco.names'):
+            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
+        else:
+            logger.info('[vision3D] coco.names has already been downloaded.')
+
+        # Download YOLO files.
+        if not os.path.isfile('yolov3-tiny.weights'):
+            wget.download('https://pjreddie.com/media/files/yolov3-tiny.weights')
+        else:
+            logger.info('[vision3D] yolov3-tiny.weights has already been downloaded.')
+        if not os.path.isfile('yolov3-tiny.cfg'):
+            wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg')
+        else:
+            logger.info('[vision3D] yolov3-tiny.cfg has already been downloaded.')
+
+        # Download Model COCO SSD512 file: https://github.com/weiliu89/caffe/tree/ssd (fork from BVLC/caffe).
+        if not os.path.isfile('models_VGGNet_coco_SSD_512x512.tar.gz'):
+            gdd.download_file_from_google_drive(file_id='0BzKzrI_SkD1_dlJpZHJzOXd3MTg',
+                                                dest_path='./models_VGGNet_coco_SSD_512x512.tar.gz',
+                                                showsize=True, unzip=False)
+            tgz = tarfile.open('models_VGGNet_coco_SSD_512x512.tar.gz')
+            tgz.extractall('./models_VGGNet_coco_SSD_512x512')
+            tgz.close()
+        else:
+            logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
 
     def _getFrameSize(self):
         # Get frame size.
