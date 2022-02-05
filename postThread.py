@@ -230,7 +230,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             frame = cv2.warpPerspective(frameR, homoTranslation.dot(homo), (xMax-xMin, yMax-yMin))
             frame[transDist[1]:rowsL+transDist[1], transDist[0]:colsL+transDist[0]] = frameL
             fmt = 'BGR'
-            msg += ' OK with %d best matches'%len(bestMatches)
+            msg += ' OK with %d %s keypoints'%(len(bestMatches), self._args['kptMode'])
 
             # Crop on demand.
             if self._args['crop']:
