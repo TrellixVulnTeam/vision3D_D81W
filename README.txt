@@ -11,9 +11,9 @@ Nvidia: jetson nano
   ~> sudo apt-get -y upgrade
 
   ~/Programs> git clone https://github.com/opencv/opencv_contrib
-  ~/Programs/opencv_contrib> git checkout 4.5.4
+  ~/Programs/opencv_contrib> git checkout 4.5.5
   ~/Programs> git clone https://github.com/opencv/opencv
-  ~/Programs/opencv> git checkout 4.5.4
+  ~/Programs/opencv> git checkout 4.5.5
 
   ~> sudo apt-get install build-essential cmake git unzip pkg-config zlib1g-dev \
                           libjpeg-dev libjpeg8-dev libjpeg-turbo8-dev \
@@ -41,6 +41,7 @@ Nvidia: jetson nano
                                  -DBUILD_opencv_python3=ON -DCMAKE_INSTALL_PREFIX:PATH=~/Programs/opencv/local \
                                  -DOPENCV_GENERATE_PKGCONFIG=ON -DWITH_GSTREAMER=ON \
                                  -DWITH_CUDA=ON -DEIGEN_INCLUDE_PATH=/usr/include/eigen3 \
+                                 -DOPENCV_DNN_CUDA=ON \
                                  -DBUILD_LIST=core,calib3d,viz,videoio,highgui,python3,dnn,stitching ..
   ~/Programs/opencv/build> make -j 2
   ~/Programs/opencv/build> make install
