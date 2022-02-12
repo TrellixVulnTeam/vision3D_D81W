@@ -117,8 +117,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                         del self._args[key]
 
                 if self._args['detection']:
+                    frameL, fmt, msgL = self._runDetection(frameL)
+                    frameR, fmt, msgR = self._runDetection(frameR)
+                    msg = 'detection %s: '%self._args['detectMode'] + msgL + ', ' + msgR
                     frame = np.concatenate((frameL, frameR), axis=1)
-                    frame, fmt, msg = self._runDetection(frame)
                 elif self._args['depth']:
                     frame, fmt, msg = self._runDepth(frameL, frameR)
                 elif self._args['keypoints']:
