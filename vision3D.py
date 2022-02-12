@@ -130,6 +130,30 @@ class Vision3DRadioButtonKeyPoints(QWidget):
             value = rdoBtn.mode # Mode which has been modified.
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
+class Vision3DRadioButtonSegmentation(QWidget):
+    def __init__(self, param, parent=None):
+        # Initialise.
+        super().__init__(parent)
+        self.rdoBoxWsd = QRadioButton('Watershed')
+        self.rdoBoxWsd.mode = 'Watershed'
+        self.rdoBoxKMs = QRadioButton('KMeans')
+        self.rdoBoxKMs.mode = 'KMeans'
+        self._param = param # Track associated parameter.
+        self._vision3D = parent
+        grpBtn = QButtonGroup(parent)
+        grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(self.rdoBoxWsd)
+        grpBtn.addButton(self.rdoBoxKMs)
+
+    def onParameterChanged(self):
+        # Callback on parameter change.
+        rdoBtn = self.sender()
+        if rdoBtn.isChecked():
+            # Send signal to threads.
+            self._vision3D.disableCalibration()
+            value = rdoBtn.mode # Mode which has been modified.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+
 class Vision3DSignals(QObject):
     # Signals enabling to update threads from application.
     changeParam = pyqtSignal(str, str, object) # May be int, double, ...
@@ -371,6 +395,21 @@ class Vision3D(QWidget):
         self._args['nbFeatures'] = 100
         self._createEditParameters(grpBoxLay, 'nbFeatures', row, col+2, enable=True, objType='int')
 
+    def _createChkBoxParametersSegmentation(self, grpBoxLay, row, col):
+        # Create GUI for keypoints.
+        self._args['segMode'] = 'Watershed'
+        self.v3DRdoBtnSeg = Vision3DRadioButtonSegmentation('segMode', parent=self)
+        self.v3DRdoBtnSeg.rdoBoxWsd.setChecked(True)
+        self.v3DRdoBtnSeg.rdoBoxKMs.setChecked(False)
+        self.v3DRdoBtnSeg.rdoBoxWsd.toggled.connect(self.v3DRdoBtnSeg.onParameterChanged)
+        self.v3DRdoBtnSeg.rdoBoxKMs.toggled.connect(self.v3DRdoBtnSeg.onParameterChanged)
+        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxWsd, row, col+0)
+        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxKMs, row, col+1)
+        self._args['K'] = 10
+        self._createEditParameters(grpBoxLay, 'K', row, col+2, enable=True, objType='int')
+        self._args['attempts'] = 3
+        self._createEditParameters(grpBoxLay, 'attempts', row, col+3, enable=True, objType='int')
+
     def _createChkBoxParametersPost(self, grpBoxLay):
         # Create GUI for postprocessing.
         self._args['detection'] = False
@@ -389,12 +428,16 @@ class Vision3D(QWidget):
         stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
         self._args['crop'] = False
         cropChkBox = self._createChkBoxParameters(grpBoxLay, 'crop', 3, 11)
+        self._args['segmentation'] = False
+        segChkBox = self._createChkBoxParameters(grpBoxLay, 'segmentation', 4, 10)
+        self._createChkBoxParametersSegmentation(grpBoxLay, 4, 22)
         grpBtn = QButtonGroup(self)
         grpBtn.setExclusive(True) # Make radio button exclusive.
         grpBtn.addButton(detectChkBox.gui)
         grpBtn.addButton(depthChkBox.gui)
         grpBtn.addButton(kptChkBox.gui)
         grpBtn.addButton(stitchChkBox.gui)
+        grpBtn.addButton(segChkBox.gui)
 
     @staticmethod
     def _downloadDNNPreTrainedModels():

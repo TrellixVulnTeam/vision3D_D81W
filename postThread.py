@@ -27,6 +27,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self.signals = PostThreadSignals()
         self._stereo = None
         self._stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)
+        self._wsdColors = [] # Color used to segment with watershed.
 
         # Event subscribe.
         threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
@@ -124,6 +125,11 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     frame, fmt, msg = self._runKeypoints(frameL, frameR)
                 elif self._args['stitch']:
                     frame, fmt, msg = self._runStitch(frameL, frameR)
+                elif self._args['segmentation']:
+                    frameL, fmt, msgL = self._runSegmentation(frameL)
+                    frameR, fmt, msgR = self._runSegmentation(frameR)
+                    msg = '%s segmentation: '%self._args['segMode'] + msgL + ', ' + msgR
+                    frame = np.concatenate((frameL, frameR), axis=1)
             except:
                 if msg == '': # Otherwise, keep more relevant message.
                     msg = 'OpenCV exception!...'
@@ -370,6 +376,75 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         return frame, fmt, msg
 
+    def _runSegmentationWatershed(self, frame):
+        # Convert to gray scale.
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Remove noise.
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+
+        # Finding sure background area.
+        sureBg = cv2.dilate(opening, kernel, iterations=3)
+
+        # Finding sure foreground area.
+        distTransform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        ret, sureFg = cv2.threshold(distTransform, 0.7*distTransform.max(), 255, 0)
+
+        # Finding unknown region.
+        sureFg = np.uint8(sureFg)
+        unknown = cv2.subtract(sureBg, sureFg)
+
+        # Marker labelling.
+        ret, markers = cv2.connectedComponents(sureFg)
+
+        # Add one to all labels to make sure background is not 0, but 1.
+        markers = markers+1
+
+        # Now, mark the region of unknown with zero.
+        markers[unknown==255] = 0
+
+        # Run watershed segmentation.
+        markers = cv2.watershed(frame, markers)
+        fmt = 'BGR'
+        msg = 'OK'
+
+        # Color image according to different region centered/attributed to each marker.
+        uniqueMarkers = np.unique(markers)
+        if len(self._wsdColors) < len(uniqueMarkers):
+            self._wsdColors = np.random.choice(range(256), size=(len(uniqueMarkers), 3))
+        for idx, uniqueMarker in enumerate(uniqueMarkers):
+            frame[markers == uniqueMarker] = self._wsdColors[idx]
+
+        return frame, fmt, msg
+
+    def _runSegmentationKMeans(self, frame):
+        # Run KMeans segmentation.
+        frame = np.float32(frame)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        K, attempts = self._args['K'], self._args['attempts']
+        ret, label, center = cv2.kmeans(frame, K, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
+
+        # Convert back to image.
+        shape = frame.shape
+        center = np.uint8(center)
+        frame = center[label.flatten()]
+        frame = frame.reshape(shape)
+        fmt = 'BGR'
+        msg = 'OK (K=%d, attempts=%d)'%(self._args['K'], self._args['attempts'])
+
+        return frame, fmt, msg
+
+    def _runSegmentation(self, frame):
+        # Run segmentation.
+        if self._args['segMode'] == 'Watershed':
+            frame, fmt, msg = self._runSegmentationWatershed(frame)
+        elif self._args['segMode'] == 'KMeans':
+            frame, fmt, msg = self._runSegmentationKMeans(frame)
+
+        return frame, fmt, msg
+
     @staticmethod
     def _cropFrame(frame):
         # Add black borders around frame to ease thresholding.
@@ -439,6 +514,11 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             msg += ', stitch %s'%self._args['stitch']
             if self._args['stitch']:
                 msg += ', crop %s'%self._args['crop']
+            msg += ', segmentation %s'%self._args['segmentation']
+            if self._args['segmentation']:
+                msg += ', segMode %s'%self._args['segMode']
+                msg += ', K %s'%self._args['K']
+                msg += ', attempts %s'%self._args['attempts']
         if self._args['DBGprof']:
             if self._args['detection']:
                 msg += ', detection %s'%self._args['detection']
