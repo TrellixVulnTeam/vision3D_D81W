@@ -110,7 +110,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
             # Postprocess.
             start = time.time()
-            frame, fmt, msg = np.ones(frameL.shape, np.uint8), 'GRAY', ''
+            frame, fmt, msg = np.ones(frameL.shape, np.uint8), 'GRAY', 'None'
             try:
                 for key in ['detectHits', 'dnnTime']:
                     if key in self._args:
@@ -123,10 +123,13 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     frame = np.concatenate((frameL, frameR), axis=1)
                 elif self._args['depth']:
                     frame, fmt, msg = self._runDepth(frameL, frameR)
+                    msg = 'depth: ' + msg
                 elif self._args['keypoints']:
                     frame, fmt, msg = self._runKeypoints(frameL, frameR)
+                    msg = '%s keypoints: '%self._args['kptMode'] + msg
                 elif self._args['stitch']:
                     frame, fmt, msg = self._runStitch(frameL, frameR)
+                    msg = 'stitch: ' + msg
                 elif self._args['segmentation']:
                     frameL, fmt, msgL = self._runSegmentation(frameL)
                     frameR, fmt, msgR = self._runSegmentation(frameR)
@@ -137,6 +140,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     msg = 'OpenCV exception!...'
             stop = time.time()
             self._args['postTime'] = stop - start
+            msg += ' - ' + 'time %.3f s'%self._args['postTime']
 
             # Get image back to application.
             start = time.time()
@@ -236,7 +240,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Check if we have detected some objects.
         self._args['detectHits'] = len(boxes)
         if len(boxes) == 0:
-            msg = '%s, nb hits %d '%(self._args['detectMode'], self._args['detectHits'])
+            msg = 'no hit'
             return frame, 'BGR', msg
 
         # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
@@ -257,7 +261,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 cv2.rectangle(frame, (boxCenterX, boxCenterY), (boxCenterX + boxWidth, boxCenterY + boxHeight), color, 2)
                 text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
                 cv2.putText(frame, text, (boxCenterX, boxCenterY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        msg = '%s, nb hits %d '%(self._args['detectMode'], self._args['detectHits'])
+        msg = '%d hit(s)'%self._args['detectHits']
 
         return frame, 'BGR', msg
 
@@ -275,7 +279,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         if np.max(scaledDisparity) > 0:
             scaledDisparity = scaledDisparity * (255/np.max(scaledDisparity))
         frame = scaledDisparity.astype(np.uint8)
-        msg = 'depth (range 0-255, mean %03d, std %03d)'%(np.mean(scaledDisparity), np.std(scaledDisparity))
+        msg = 'range 0-255, mean %03d, std %03d'%(np.mean(scaledDisparity), np.std(scaledDisparity))
 
         return frame, 'GRAY', msg
 
@@ -293,7 +297,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         kptL, dscL = kptMode.detectAndCompute(grayL, None)
         kptR, dscR = kptMode.detectAndCompute(grayR, None)
         if len(kptL) == 0 or len(kptR) == 0:
-            msg = 'KO: no keypoint'
+            msg = 'KO no keypoint'
             return kptL, kptR, [], msg
 
         # Match keypoints.
@@ -305,7 +309,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         bf = cv2.BFMatcher(norm, crossCheck=False) # Need crossCheck=False for knnMatch.
         matches = bf.knnMatch(dscL, dscR, k=2) # knnMatch crucial to get 2 matches m1 and m2.
         if len(matches) == 0:
-            msg = 'KO: no match'
+            msg = 'KO no match'
             return kptL, kptR, matches, msg
 
         # To keep only strong matches.
@@ -314,7 +318,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             if m1.distance < 0.6 * m2.distance: # Best match has to be closer than second best.
                 bestMatches.append(m1) # Lowe’s ratio test.
         if len(bestMatches) == 0:
-            msg = 'KO: no best match'
+            msg = 'KO no best match'
             return kptL, kptR, bestMatches, msg
 
         return kptL, kptR, bestMatches, msg
@@ -329,8 +333,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Draw matches.
         frame = cv2.drawMatches(frameL, kptL, frameR, kptR, bestMatches, None)
         minDist = np.min([match.distance for match in bestMatches])
-        data = (self._args['kptMode'], minDist, len(bestMatches))
-        msg = '%s keypoints (min distance %.3f, nb best matches %d)'%data
+        msg = 'nb best matches %03d, min distance %.3f'%(len(bestMatches), minDist)
 
         return frame, 'BGR', msg
 
@@ -339,7 +342,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
 
         # Stitch images.
-        frame, fmt, msg = None, None, 'stitch'
+        frame, fmt, msg = None, None, ''
         minMatchCount = 10 # Need at least 10 points to find homography.
         if len(bestMatches) > minMatchCount:
             # Find homography (RANSAC).
@@ -363,7 +366,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             frame = cv2.warpPerspective(frameR, homoTranslation.dot(homo), (xMax-xMin, yMax-yMin))
             frame[transDist[1]:rowsL+transDist[1], transDist[0]:colsL+transDist[0]] = frameL
             fmt = 'BGR'
-            msg += ' OK with %d %s keypoints'%(len(bestMatches), self._args['kptMode'])
+            msg += 'OK (%03d %s keypoints)'%(len(bestMatches), self._args['kptMode'])
 
             # Crop on demand.
             if self._args['crop']:
@@ -374,7 +377,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         else:
             frame = np.ones(frameL.shape, np.uint8) # Black image.
             fmt = 'GRAY'
-            msg += ' KO, not enough matches found (%d/%d)'%(len(bestMatches), minMatchCount)
+            msg += 'KO not enough matches found (%03d/%03d)'%(len(bestMatches), minMatchCount)
 
         return frame, fmt, msg
 
@@ -410,10 +413,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Run watershed segmentation.
         markers = cv2.watershed(frame, markers)
         fmt = 'BGR'
-        msg = 'OK'
+        uniqueMarkers = np.unique(markers)
+        msg = 'OK (%03d markers)'%len(uniqueMarkers)
 
         # Color image according to different region centered/attributed to each marker.
-        uniqueMarkers = np.unique(markers)
         if len(self._wsdColors) < len(uniqueMarkers):
             self._wsdColors = np.random.choice(range(256), size=(len(uniqueMarkers), 3))
         for idx, uniqueMarker in enumerate(uniqueMarkers):
@@ -434,7 +437,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         frame = center[label.flatten()]
         frame = frame.reshape(shape)
         fmt = 'BGR'
-        msg = 'OK (K=%d, attempts=%d)'%(self._args['K'], self._args['attempts'])
+        msg = 'OK (K=%02d, attempts=%02d)'%(self._args['K'], self._args['attempts'])
 
         return frame, fmt, msg
 
