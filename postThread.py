@@ -42,9 +42,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         labels = open('coco.names').read().strip().split("\n") # Load the COCO class labels.
         np.random.seed(42) # Initialize colors to represent each possible class label.
         colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
-        self._detect = {'YOLO': {}, 'SSD': {}}
+        self._detect = {'YOLO': {}, 'SSD': {}, 'ENet': {}}
         self._setupYOLO(labels, colors)
         self._setupSSD(labels, colors)
+        self._setupENet()
         for key in self._detect:
             net = self._detect[key]['net']
             if self._args['hardware'] == 'arm-jetson':
@@ -135,6 +136,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     frameR, fmt, msgR = self._runSegmentation(frameR)
                     msg = '%s segmentation: '%self._args['segMode'] + msgL + ', ' + msgR
                     frame = np.concatenate((frameL, frameR), axis=1)
+                    if self._args['segMode'] == 'ENet':
+                        legend = self._detect['ENet']['legend']
+                        if legend is not None:
+                            frame = np.concatenate((legend, frame), axis=1)
             except:
                 if msg == '': # Otherwise, keep more relevant message.
                     msg = 'OpenCV exception!...'
@@ -191,6 +196,24 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._detect['SSD']['colors'] = colors
         self._detect['SSD']['net'] = net
         self._detect['SSD']['ln'] = ln
+
+    def _setupENet(self):
+        # Load the cityscapes classes our ENet model was trained on.
+        classes = open('enet-classes.txt').read().strip().split("\n")
+
+        # Initialize a list of colors to represent each possible class label.
+        colors = open('enet-colors.txt').read().strip().split("\n")
+        colors = [np.array(c.split(",")).astype("int") for c in colors]
+        colors = np.array(colors, dtype="uint8")
+
+        # Load our ENet neural network trained on cityscapes dataset.
+        net = cv2.dnn.readNet('enet-model.net')
+
+        # Remind ENet setup.
+        self._detect['ENet']['classes'] = classes
+        self._detect['ENet']['colors'] = colors
+        self._detect['ENet']['net'] = net
+        self._detect['ENet']['legend'] = None
 
     def _runDetection(self, frame):
         # Construct a blob from the input frame.
@@ -381,6 +404,57 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         return frame, fmt, msg
 
+    def _runSegmentationENet(self, frame):
+        # Construct a blob from the input frame.
+        # The original ENet input image dimensions was trained on was 1024x512, so, this shape is imposed.
+        blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (1024, 512), swapRB=True, crop=False)
+
+        # Perform a forward pass of the ENet neural network.
+        net = self._detect['ENet']['net']
+        net.setInput(blob)
+        output = net.forward()
+
+        # Infer number of classes and the spatial dimensions of the mask image from the output array.
+        (numClasses, height, width) = output.shape[1:4]
+
+        # Our output class ID map will be num_classes x height x width in size, so we take the argmax to find
+        # the class label with the largest probability for each and every (x, y)-coordinate in the image.
+        classMap = np.argmax(output[0], axis=0)
+
+        # Given the class ID map, we can map each of the class IDs to its corresponding color.
+        colors = self._detect['ENet']['colors']
+        mask = colors[classMap]
+
+        # Resize the mask and class map such that its dimensions match the original size of the input image.
+        mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+        classMap = cv2.resize(classMap, (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+        # Perform a weighted combination of the input image with the mask to form an output visualization
+        frame = ((0.4 * frame) + (0.6 * mask)).astype("uint8")
+        fmt = 'BGR'
+        msg = 'OK'
+
+        # Create or update legend.
+        legend = self._detect['ENet']['legend']
+        if legend is None or legend.shape[0] != frame.shape[0]:
+            # Initialize the legend visualization.
+            legend = np.zeros((frame.shape[0], frame.shape[1]//3, 3), dtype="uint8")
+
+            # Loop over the class names and colors.
+            classes = self._detect['ENet']['classes']
+            maxHeight = frame.shape[0]
+            nameSize = maxHeight//(len(classes)+2)
+            for (i, (name, color)) in enumerate(zip(classes, colors)):
+                # Draw the class name and color on the legend.
+                color = [int(c) for c in color]
+                cv2.putText(legend, name, (5, (i * nameSize) + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                cv2.rectangle(legend, (100, (i * nameSize)), (200, ((i+1) * nameSize)), tuple(color), -1)
+
+            # Backup legend to reuse it.
+            self._detect['ENet']['legend'] = legend
+
+        return frame, fmt, msg
+
     def _runSegmentationWatershed(self, frame):
         # Convert to gray scale.
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -443,7 +517,9 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
     def _runSegmentation(self, frame):
         # Run segmentation.
-        if self._args['segMode'] == 'Watershed':
+        if self._args['segMode'] == 'ENet':
+            frame, fmt, msg = self._runSegmentationENet(frame)
+        elif self._args['segMode'] == 'Watershed':
             frame, fmt, msg = self._runSegmentationWatershed(frame)
         elif self._args['segMode'] == 'KMeans':
             frame, fmt, msg = self._runSegmentationKMeans(frame)

@@ -134,6 +134,8 @@ class Vision3DRadioButtonSegmentation(QWidget):
     def __init__(self, param, parent=None):
         # Initialise.
         super().__init__(parent)
+        self.rdoBoxEnt = QRadioButton('ENet')
+        self.rdoBoxEnt.mode = 'ENet'
         self.rdoBoxWsd = QRadioButton('Watershed')
         self.rdoBoxWsd.mode = 'Watershed'
         self.rdoBoxKMs = QRadioButton('KMeans')
@@ -142,6 +144,7 @@ class Vision3DRadioButtonSegmentation(QWidget):
         self._vision3D = parent
         grpBtn = QButtonGroup(parent)
         grpBtn.setExclusive(True) # Make radio button exclusive.
+        grpBtn.addButton(self.rdoBoxEnt)
         grpBtn.addButton(self.rdoBoxWsd)
         grpBtn.addButton(self.rdoBoxKMs)
 
@@ -399,12 +402,15 @@ class Vision3D(QWidget):
         # Create GUI for keypoints.
         self._args['segMode'] = 'Watershed'
         self.v3DRdoBtnSeg = Vision3DRadioButtonSegmentation('segMode', parent=self)
+        self.v3DRdoBtnSeg.rdoBoxEnt.setChecked(True)
         self.v3DRdoBtnSeg.rdoBoxWsd.setChecked(True)
         self.v3DRdoBtnSeg.rdoBoxKMs.setChecked(False)
+        self.v3DRdoBtnSeg.rdoBoxEnt.toggled.connect(self.v3DRdoBtnSeg.onParameterChanged)
         self.v3DRdoBtnSeg.rdoBoxWsd.toggled.connect(self.v3DRdoBtnSeg.onParameterChanged)
         self.v3DRdoBtnSeg.rdoBoxKMs.toggled.connect(self.v3DRdoBtnSeg.onParameterChanged)
-        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxWsd, row, col+0)
-        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxKMs, row, col+1)
+        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxEnt, row, col+0)
+        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxWsd, row, col+1)
+        grpBoxLay.addWidget(self.v3DRdoBtnSeg.rdoBoxKMs, row, col+2)
         self._args['K'] = 10
         self._createEditParameters(grpBoxLay, 'K', row, col+2, enable=True, objType='int')
         self._args['attempts'] = 3
@@ -467,6 +473,20 @@ class Vision3D(QWidget):
             tgz.close()
         else:
             logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
+
+        # Download ENet files.
+        if not os.path.isfile('enet-classes.txt'):
+            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-classes.txt')
+        else:
+            logger.info('[vision3D] enet-classes.txt has already been downloaded.')
+        if not os.path.isfile('enet-colors.txt'):
+            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-colors.txt')
+        else:
+            logger.info('[vision3D] enet-colors.txt has already been downloaded.')
+        if not os.path.isfile('enet-model.net'):
+            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-model.net')
+        else:
+            logger.info('[vision3D] enet-model.net has already been downloaded.')
 
     def _createThreads(self):
         # Start threads.
