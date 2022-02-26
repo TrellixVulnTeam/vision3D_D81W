@@ -249,11 +249,11 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     # Scale the bounding box coordinates back relative to the size of the image, keeping in mind that YOLO
                     # returns the center (x, y)-coordinates of the bounding box followed by the boxes' width and height.
                     box = detection[0:4] * np.array([width, height, width, height])
-                    boxCenterX, boxCenterY, boxWidth, boxHeight = box.astype("int")
+                    boxTopX, boxTopY, boxWidth, boxHeight = box.astype("int")
 
                     # Use the center (x, y)-coordinates to derive the top and and left corner of the bounding box.
-                    boxCenterX = int(boxCenterX - (boxWidth / 2))
-                    boxCenterY = int(boxCenterY - (boxHeight / 2))
+                    boxCenterX = int(boxTopX - (boxWidth / 2))
+                    boxCenterY = int(boxTopY - (boxHeight / 2))
 
                     # Update our list of bounding box coordinates, confidences, and class IDs
                     boxes.append([boxCenterX, boxCenterY, int(boxWidth), int(boxHeight)])
@@ -276,14 +276,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             # Loop over the indexes we are keeping.
             for idx in idxs.flatten():
                 # Extract the bounding box coordinates.
-                (boxCenterX, boxCenterY) = (boxes[idx][0], boxes[idx][1])
+                (boxTopX, boxTopY) = (boxes[idx][0], boxes[idx][1])
                 (boxWidth, boxHeight) = (boxes[idx][2], boxes[idx][3])
 
                 # Draw a bounding box rectangle and label on the frame.
                 color = [int(clr) for clr in colors[classIDs[idx]]]
-                cv2.rectangle(frame, (boxCenterX, boxCenterY), (boxCenterX + boxWidth, boxCenterY + boxHeight), color, 2)
+                cv2.rectangle(frame, (boxTopX, boxTopY), (boxTopX + boxWidth, boxTopY + boxHeight), color, 2)
                 text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
-                cv2.putText(frame, text, (boxCenterX, boxCenterY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                cv2.putText(frame, text, (boxTopX, boxTopY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         msg = '%d hit(s)'%self._args['detectHits']
 
         return frame, 'BGR', msg
