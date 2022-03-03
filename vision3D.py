@@ -307,15 +307,15 @@ class Vision3D(QWidget):
         self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
         self._createChkBoxParametersPost(grpBoxLay)
         self._args['DBGcapt'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 27)
+        self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 28)
         self._args['DBGpost'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 2, 27)
+        self._createChkBoxParameters(grpBoxLay, 'DBGpost', 2, 28)
         self._args['DBGrun'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGrun', 1, 28)
+        self._createChkBoxParameters(grpBoxLay, 'DBGrun', 1, 29)
         self._args['DBGprof'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGprof', 2, 28)
+        self._createChkBoxParameters(grpBoxLay, 'DBGprof', 2, 29)
         self._args['DBGcomm'] = False
-        self._createChkBoxParameters(grpBoxLay, 'DBGcomm', 3, 28)
+        self._createChkBoxParameters(grpBoxLay, 'DBGcomm', 3, 29)
 
         # Handle alignment.
         grpBox.setAlignment(Qt.AlignCenter)
@@ -384,6 +384,8 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'confidence', row, col+2, enable=True, objType='double')
         self._args['nms'] = 0.3
         self._createEditParameters(grpBoxLay, 'nms', row, col+3, enable=True, objType='double')
+        self._args['tracking'] = False
+        self._createChkBoxParameters(grpBoxLay, 'tracking', row, col+4)
 
     def _createChkBoxParametersPostKeypoints(self, grpBoxLay, row, col):
         # Create GUI for keypoints.

@@ -9,6 +9,7 @@ import threading
 import cv2
 import logging
 import time
+import kalman
 
 logger = logging.getLogger('post')
 
@@ -42,6 +43,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         labels = open('coco.names').read().strip().split("\n") # Load the COCO class labels.
         np.random.seed(42) # Initialize colors to represent each possible class label.
         colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
+        self._knownKfr = {'left': [], 'right': []} # Remind known tracked detections on both sides.
         self._detect = {'YOLO': {}, 'SSD': {}, 'ENet': {}}
         self._setupYOLO(labels, colors)
         self._setupSSD(labels, colors)
@@ -118,8 +120,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                         del self._args[key]
 
                 if self._args['detection']:
-                    frameL, fmt, msgL = self._runDetection(frameL)
-                    frameR, fmt, msgR = self._runDetection(frameR)
+                    frameL, fmt, msgL = self._runDetection(frameL, self._knownKfr['left'])
+                    frameR, fmt, msgR = self._runDetection(frameR, self._knownKfr['right'])
                     msg = 'detection %s: '%self._args['detectMode'] + msgL + ', ' + msgR
                     frame = np.concatenate((frameL, frameR), axis=1)
                 elif self._args['depth']:
@@ -215,7 +217,49 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._detect['ENet']['net'] = net
         self._detect['ENet']['legend'] = None
 
-    def _runDetection(self, frame):
+    def _runKalman(self, frame, detections, knownKfr):
+        # Run kalman predictions over detections.
+        for xwyhlc in detections:
+            boxTopX, boxWidth, boxTopY, boxHeight, boxLabel, boxClr = xwyhlc
+            boxCenterX, boxCenterY = boxTopX + boxWidth//2, boxTopY + boxHeight//2
+
+            # Find best previous kalman filter that match current box.
+            bestKfr = True if len(knownKfr) == 0 else False
+            for kfr in knownKfr:
+                kalTopX, kalWidth, kalTopY, kalHeight, kalLabel, _ = kfr['xwyhlc']
+
+                if kalLabel == boxLabel:
+                    if kalTopX <= boxCenterX <= kalTopX + kalWidth:
+                        if kalTopY <= boxCenterY <= kalTopY + kalHeight:
+                            bestKfr = kfr # Best previous kalman filter.
+
+                if bestKfr is not False:
+                    break
+
+            # For each detection, create or update associated kalman filter.
+            if bestKfr is not False:
+                if bestKfr is True: # Create new kalman filter.
+                    kfr = kalman.KalmanFilter([boxCenterX, boxCenterY])
+                    bestKfr = {'kfr': kfr}
+                    knownKfr.append(bestKfr)
+                else: # Update existing kalman filter.
+                    bestKfr['kfr'].prediction()
+
+                # Update best kalman filter.
+                bestKfr['xwyhlc'] = xwyhlc
+                vecZ = np.array([[boxCenterX], [boxCenterY]])
+                bestKfr['kfr'].update(vecZ)
+
+                # Draw velocity arrow on frame.
+                velX = int(bestKfr['kfr'].vecS[2])
+                velY = int(bestKfr['kfr'].vecS[3])
+                startPt = (boxCenterX, boxCenterY)
+                endPt = (boxCenterX+velX, boxCenterY+velY)
+                cv2.arrowedLine(frame, startPt, endPt, boxClr, 2)
+
+        return frame
+
+    def _runDetection(self, frame, knownKfr):
         # Construct a blob from the input frame.
         blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
@@ -272,6 +316,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         # Ensure at least one detection exists.
         colors, labels = detect['colors'], detect['labels']
+        detections = []
         if len(idxs) > 0:
             # Loop over the indexes we are keeping.
             for idx in idxs.flatten():
@@ -284,7 +329,15 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 cv2.rectangle(frame, (boxTopX, boxTopY), (boxTopX + boxWidth, boxTopY + boxHeight), color, 2)
                 text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
                 cv2.putText(frame, text, (boxTopX, boxTopY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                # List detections.
+                detections.append((boxTopX, boxWidth, boxTopY, boxHeight, labels[classIDs[idx]], color))
         msg = '%d hit(s)'%self._args['detectHits']
+
+        # Add tracking on demand.
+        if self._args['tracking']:
+            msg += ' with tracking'
+            frame = self._runKalman(frame, detections, knownKfr)
 
         return frame, 'BGR', msg
 
@@ -582,6 +635,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 msg += ', detectMode %s'%self._args['detectMode']
                 msg += ', conf %.3f'%self._args['confidence']
                 msg += ', nms %.3f'%self._args['nms']
+                msg += ', tracking %s'%self._args['tracking']
                 if 'detectHits' in self._args:
                     msg += ', detectHits %d'%self._args['detectHits']
             msg += ', depth %s'%self._args['depth']
