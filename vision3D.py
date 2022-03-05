@@ -252,6 +252,10 @@ class Vision3D(QWidget):
             self._focXLeft.gui.setText('%.1f'%params['focXLeft'])
         if 'focXRight' in params:
             self._focXRight.gui.setText('%.1f'%params['focXRight'])
+        if 'baselineLeft' in params:
+            self._baselineLeft.gui.setText('%.1f'%params['baselineLeft'])
+        if 'baselineRight' in params:
+            self._baselineRight.gui.setText('%.1f'%params['baselineRight'])
         self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
@@ -288,6 +292,10 @@ class Vision3D(QWidget):
         self._focXLeft = self._createEditParameters(grpBoxLay, 'focXLeft', 3, 0, objType='double')
         self._args['focXRight'] = -1.
         self._focXRight = self._createEditParameters(grpBoxLay, 'focXRight', 3, 1, objType='double')
+        self._args['baselineLeft'] = -1.
+        self._baselineLeft = self._createEditParameters(grpBoxLay, 'baselineLeft', 4, 0, objType='double')
+        self._args['baselineRight'] = -1.
+        self._baselineRight = self._createEditParameters(grpBoxLay, 'baselineRight', 4, 1, objType='double')
 
         # Create control parameters.
         self._args['mode'] = 'raw'

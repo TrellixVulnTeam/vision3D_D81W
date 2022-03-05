@@ -235,6 +235,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                                                                                             shape,
                                                                                             criteria=criteria,
                                                                                             flags=flags)
+        self._args['trans'] = trans
 
         # Stereo rectification based on calibration.
         flags = 0
@@ -267,6 +268,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
                                                                                                 shape,
                                                                                                 criteria=criteria,
                                                                                                 flags=flags)
+        self._args['trans'] = trans
 
         # Stereo rectification based on calibration.
         alpha = -1 # Default scaling.
@@ -314,6 +316,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             stereoMap = cv2.initUndistortRectifyMap(mtxR, distR, rectR, newCamMtxR, shapeR, cv2.CV_16SC2)
         self._args['roiCam'] = False # Without calibration, no ROI.
         self._args['stereoMap'] = stereoMap
+        if 'trans' in self._args:
+            del self._args['trans']
 
     def _runCapture(self, mtx, dist):
         # Get frame and process it.
@@ -375,11 +379,17 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         if 'newCamMtx' in self._args:
             focX = self._args['newCamMtx'][0][0] # Focal distance along X-axis.
             focX = np.abs(focX)
+        baseline = -1.
+        if 'trans' in self._args:
+            baseline = self._args['trans'][0] # Distance between cameras.
+            baseline = np.abs(baseline)
         params = {}
         if self._cal['side'] == 'left':
             params['focXLeft'] = focX
+            params['baselineLeft'] = baseline
         else:
             params['focXRight'] = focX
+            params['baselineRight'] = baseline
         self.signals.calibrationDone.emit(self._args['videoID'], hasROI, params)
 
     def _generateMessage(self, dbgRun=False):
