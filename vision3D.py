@@ -245,6 +245,11 @@ class Vision3D(QWidget):
             self.v3DRdoBtnMode.rdoBoxStr.setEnabled(True)
             self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(True)
             self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(True)
+            self.v3DRdoBtnKpt.rdoBoxORB.setEnabled(True)
+            self.v3DRdoBtnKpt.rdoBoxSIFT.setEnabled(True)
+            self.v3DRdoBtnSeg.rdoBoxEnt.setEnabled(True)
+            self.v3DRdoBtnSeg.rdoBoxWsd.setEnabled(True)
+            self.v3DRdoBtnSeg.rdoBoxKMs.setEnabled(True)
             for v3DEdt in self._guiCtrParams:
                 v3DEdt.gui.setEnabled(True)
             self._ckbROI.gui.setEnabled(hasROI)
@@ -265,6 +270,11 @@ class Vision3D(QWidget):
         self.v3DRdoBtnMode.rdoBoxStr.setEnabled(False)
         self.v3DRdoBtnDetect.rdoBoxYOLO.setEnabled(False)
         self.v3DRdoBtnDetect.rdoBoxSSD.setEnabled(False)
+        self.v3DRdoBtnKpt.rdoBoxORB.setEnabled(False)
+        self.v3DRdoBtnKpt.rdoBoxSIFT.setEnabled(False)
+        self.v3DRdoBtnSeg.rdoBoxEnt.setEnabled(False)
+        self.v3DRdoBtnSeg.rdoBoxWsd.setEnabled(False)
+        self.v3DRdoBtnSeg.rdoBoxKMs.setEnabled(False)
         for v3DEdt in self._guiCtrParams:
             v3DEdt.gui.setEnabled(False)
         self._ckbROI.gui.setEnabled(False)
