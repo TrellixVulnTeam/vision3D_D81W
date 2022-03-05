@@ -160,11 +160,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Stop thread.
         self._run = False
 
-    def updatePrepFrame(self, frame, dct):
+    def updatePrepFrame(self, frame, dct, params):
         # Postprocess incoming frame.
         self._postLock.acquire()
         side = dct['side']
         self._post[side] = frame # Refresh frame.
+        for key in ['focXLeft', 'focXRight', 'baselineLeft', 'baseLineRight']:
+            if key in params:
+                self._post[key] = params[key]
         self._postLock.release()
 
     def _setupYOLO(self, labels, colors):

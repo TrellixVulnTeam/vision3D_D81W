@@ -16,7 +16,7 @@ logger = logging.getLogger('capt')
 
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
-    updatePrepFrame = pyqtSignal(np.ndarray, dict) # Update preprocessed frame (after undistort / stereo).
+    updatePrepFrame = pyqtSignal(np.ndarray, dict, dict) # Update preprocessed frame (after undistort / stereo).
     calibrationDone = pyqtSignal(int, bool, dict)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
@@ -350,7 +350,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             # Get image back to application.
             start = time.time()
             dct = {'fps': fps, 'side': self._cal['side']}
-            self.signals.updatePrepFrame.emit(frame, dct)
+            params = self._createParams()
+            self.signals.updatePrepFrame.emit(frame, dct, params)
             stop = time.time()
             self._args['updatePrepFrameTime'] = stop - start
             self._args['updatePrepFrameSize'] = frame.nbytes
@@ -375,6 +376,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _emitCalibrationDoneSignal(self):
         # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
+        params = self._createParams()
+        self.signals.calibrationDone.emit(self._args['videoID'], hasROI, params)
+
+    def _createParams(self):
+        # Create calibration parameters dictionary.
         focX = -1.
         if 'newCamMtx' in self._args:
             focX = self._args['newCamMtx'][0][0] # Focal distance along X-axis.
@@ -390,7 +396,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         else:
             params['focXRight'] = focX
             params['baselineRight'] = baseline
-        self.signals.calibrationDone.emit(self._args['videoID'], hasROI, params)
+
+        return params
 
     def _generateMessage(self, dbgRun=False):
         # Generate message from options.
