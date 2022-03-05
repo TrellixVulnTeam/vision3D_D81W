@@ -234,7 +234,7 @@ class Vision3D(QWidget):
         lbl = txt.split()[0] # Suppress old FPS: retrive only first word (Postprocess).
         self._txtLblPost.setText(lbl + ' - ' + msg)
 
-    def calibrationDone(self, vidID, hasROI):
+    def calibrationDone(self, vidID, hasROI, params):
         # Re-enable radio buttons when both threads are calibrated.
         self.calibratedThreadsLock.acquire()
         self.calibratedThreads += vidID
@@ -248,6 +248,10 @@ class Vision3D(QWidget):
             for v3DEdt in self._guiCtrParams:
                 v3DEdt.gui.setEnabled(True)
             self._ckbROI.gui.setEnabled(hasROI)
+        if 'focXLeft' in params:
+            self._focXLeft.gui.setText('%.1f'%params['focXLeft'])
+        if 'focXRight' in params:
+            self._focXRight.gui.setText('%.1f'%params['focXRight'])
         self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
@@ -268,27 +272,33 @@ class Vision3D(QWidget):
         event.accept()
 
     def _createParameters(self):
-        # Create parameters.
+        # Create video parameters.
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
         grpBox.setLayout(grpBoxLay)
         self._guiCtrParams = [] # All GUIs with controls.
-        self._createEditParameters(grpBoxLay, 'videoCapWidth', 1, 0)
-        self._createEditParameters(grpBoxLay, 'videoCapHeight', 1, 1)
-        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 2)
+        self._createEditParameters(grpBoxLay, 'videoCapWidth', 0, 0)
+        self._createEditParameters(grpBoxLay, 'videoCapHeight', 0, 1)
+        self._createEditParameters(grpBoxLay, 'videoCapFrameRate', 1, 0)
         if self._args['hardware'] == 'arm-jetson':
-            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 2, 0)
-            self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 1)
-            self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 2)
+            self._createEditParameters(grpBoxLay, 'videoFlipMethod', 1, 1)
+            self._createEditParameters(grpBoxLay, 'videoDspWidth', 2, 0)
+            self._createEditParameters(grpBoxLay, 'videoDspHeight', 2, 1)
+        self._args['focXLeft'] = -1.
+        self._focXLeft = self._createEditParameters(grpBoxLay, 'focXLeft', 3, 0, objType='double')
+        self._args['focXRight'] = -1.
+        self._focXRight = self._createEditParameters(grpBoxLay, 'focXRight', 3, 1, objType='double')
+
+        # Create control parameters.
         self._args['mode'] = 'raw'
         self._createRdoButMode(grpBoxLay, 'mode', 0, 6)
         if self._args['fisheye']:
             tooltip = 'Divisor for new focal length.'
-            self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpan=2, colSpan=1,
+            self._createEditParameters(grpBoxLay, 'fovScale', 2, 7, rowSpanLbl=2, rowSpanGUI=2,
                                        enable=True, objType='double', tooltip=tooltip)
             tooltip = 'Sets the new focal length in range between the min focal length and the max\n'
             tooltip += 'focal length. Balance is in range of [0, 1].'
-            self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpan=2, colSpan=1,
+            self._createEditParameters(grpBoxLay, 'balance', 2, 8, rowSpanLbl=2, rowSpanGUI=2,
                                        enable=True, objType='double', tooltip=tooltip)
         else:
             self._args['CAL'] = False
@@ -301,10 +311,10 @@ class Vision3D(QWidget):
             tooltip += '       no source image pixels are lost.\n'
             tooltip += 'Any intermediate value yields an intermediate result between those two extreme cases.\n'
             tooltip += 'If negative, the function performs the default scaling.'
-            self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpan=2, colSpan=1,
+            self._createEditParameters(grpBoxLay, 'alpha', 2, 8, rowSpanLbl=2, rowSpanGUI=2,
                                        enable=True, objType='double', tooltip=tooltip)
         self._args['ROI'] = False
-        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2, colSpan=1)
+        self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2)
         self._createChkBoxParametersPost(grpBoxLay)
         self._args['DBGcapt'] = False
         self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 28)
@@ -323,8 +333,9 @@ class Vision3D(QWidget):
 
         return grpBox
 
-    def _createEditParameters(self, grpBoxLay, param, row, col, rowSpan=1, colSpan=1,
-                              enable=False, objType='int', tooltip=None):
+    def _createEditParameters(self, grpBoxLay, param, row, col,
+                              rowSpanLbl=1, colSpanLbl=1, rowSpanGUI=1, colSpanGUI=1,
+                              enable=False, objType='int', tooltip=None, colOffset=2):
         # Create one parameter.
         lbl = QLabel(param)
         v3DEdt = Vision3DEdit(param, objType, parent=self)
@@ -335,13 +346,15 @@ class Vision3D(QWidget):
         val = self._args[param]
         v3DEdt.gui.setText(str(val))
         v3DEdt.gui.returnPressed.connect(v3DEdt.onParameterChanged)
-        grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
-        grpBoxLay.addWidget(v3DEdt.gui, row, 2*col+1, rowSpan, colSpan)
+        grpBoxLay.addWidget(lbl, row, colOffset*col+0, rowSpanLbl, colSpanLbl)
+        grpBoxLay.addWidget(v3DEdt.gui, row, colOffset*col+1, rowSpanGUI, colSpanGUI)
         v3DEdt.gui.setEnabled(enable)
         if enable:
             self._guiCtrParams.append(v3DEdt) # Enabled edits have controls.
         if tooltip:
             lbl.setToolTip(tooltip)
+
+        return v3DEdt
 
     def _createChkBoxParameters(self, grpBoxLay, param, row, col, triggerDisable=False, rowSpan=1, colSpan=1):
         # Create one parameter.
@@ -353,6 +366,7 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(lbl, row, 2*col+0, rowSpan, colSpan)
         grpBoxLay.addWidget(v3DChkBox.gui, row, 2*col+1, rowSpan, colSpan)
         self._guiCtrParams.append(v3DChkBox) # Enabled checkbox may have controls.
+
         return v3DChkBox
 
     def _createRdoButMode(self, grpBoxLay, param, row, col):

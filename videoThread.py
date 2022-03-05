@@ -17,7 +17,7 @@ logger = logging.getLogger('capt')
 class VideoThreadSignals(QObject):
     # Signals enabling to update application from thread.
     updatePrepFrame = pyqtSignal(np.ndarray, dict) # Update preprocessed frame (after undistort / stereo).
-    calibrationDone = pyqtSignal(int, bool)
+    calibrationDone = pyqtSignal(int, bool, dict)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
     def __init__(self, vidID, args, vision3D):
@@ -371,7 +371,16 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _emitCalibrationDoneSignal(self):
         # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
-        self.signals.calibrationDone.emit(self._args['videoID'], hasROI)
+        focX = -1.
+        if 'newCamMtx' in self._args:
+            focX = self._args['newCamMtx'][0][0] # Focal distance along X-axis.
+            focX = np.abs(focX)
+        params = {}
+        if self._cal['side'] == 'left':
+            params['focXLeft'] = focX
+        else:
+            params['focXRight'] = focX
+        self.signals.calibrationDone.emit(self._args['videoID'], hasROI, params)
 
     def _generateMessage(self, dbgRun=False):
         # Generate message from options.
