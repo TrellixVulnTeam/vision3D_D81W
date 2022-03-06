@@ -382,11 +382,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _createParams(self):
         # Create calibration parameters dictionary.
         focX = -1.
-        if 'newCamMtx' in self._args:
+        if self._args['mode'] != 'raw' and 'newCamMtx' in self._args:
             focX = self._args['newCamMtx'][0][0] # Focal distance along X-axis.
             focX = np.abs(focX)
         baseline = -1.
-        if 'trans' in self._args:
+        if self._args['mode'] == 'str' and 'trans' in self._args:
             baseline = self._args['trans'][0] # Distance between cameras.
             baseline = np.abs(baseline)
         params = {}

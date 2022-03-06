@@ -120,9 +120,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                         del self._args[key]
 
                 if self._args['detection']:
-                    frameL, fmt, msgL = self._runDetection(frameL, self._knownKfr['left'])
-                    frameR, fmt, msgR = self._runDetection(frameR, self._knownKfr['right'])
+                    frameL, fmt, msgL, detectL = self._runDetection(frameL, self._knownKfr['left'])
+                    frameR, fmt, msgR, detectR = self._runDetection(frameR, self._knownKfr['right'])
                     msg = 'detection %s: '%self._args['detectMode'] + msgL + ', ' + msgR
+                    frameL, frameR = self._computeDepth(frameL, frameR, detectL, detectR)
                     frame = np.concatenate((frameL, frameR), axis=1)
                 elif self._args['depth']:
                     frame, fmt, msg = self._runDepth(frameL, frameR)
@@ -165,7 +166,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._postLock.acquire()
         side = dct['side']
         self._post[side] = frame # Refresh frame.
-        for key in ['focXLeft', 'focXRight', 'baselineLeft', 'baseLineRight']:
+        for key in ['focXLeft', 'focXRight', 'baselineLeft', 'baselineRight']:
             if key in params:
                 self._post[key] = params[key]
         self._postLock.release()
@@ -311,7 +312,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._args['detectHits'] = len(boxes)
         if len(boxes) == 0:
             msg = 'no hit'
-            return frame, 'BGR', msg
+            return frame, 'BGR', msg, []
 
         # Apply non-maxima suppression to suppress weak, overlapping bounding boxes.
         idxs = cv2.dnn.NMSBoxes(boxes, confidences, self._args['confidence'], self._args['nms'])
@@ -342,7 +343,56 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             msg += ' with tracking'
             frame = self._runKalman(frame, detections, knownKfr)
 
-        return frame, 'BGR', msg
+        return frame, 'BGR', msg, detections
+
+    def _computeDepth(self, frameL, frameR, detectL, detectR):
+        # Check if computing depth is possible.
+        widthLeft, widthRight = frameL.shape[1], frameR.shape[1]
+        if widthLeft != widthRight:
+            return frameL, frameR # We MUST have same width to compute depth.
+        focXLeft, focXRight, baselineLeft, baselineRight = None, None, None, None
+        self._postLock.acquire()
+        if 'focXLeft' in self._post:
+            focXLeft = self._post['focXLeft']
+        if 'focXRight' in self._post:
+            focXRight = self._post['focXRight']
+        if 'baselineLeft' in self._post:
+            baselineLeft = self._post['baselineLeft']
+        if 'baselineRight' in self._post:
+            baselineRight = self._post['baselineRight']
+        self._postLock.release()
+        if focXLeft is None or baselineLeft is None or focXLeft < 0. or baselineLeft < 0.:
+            return frameL, frameR # We MUST known focal and baseline distances.
+        if focXRight is None or baselineRight is None or focXRight < 0. or baselineRight < 0.:
+            return frameL, frameR # We MUST known focal and baseline distances.
+
+        # Pair detections from left and right.
+        for xwyhlcL in detectL:
+            boxTopXL, boxWidthL, boxTopYL, boxHeightL, boxLabelL, boxClrL = xwyhlcL
+            boxCenterXL, boxCenterYL = boxTopXL + boxWidthL//2, boxTopYL + boxHeightL//2
+
+            # Find best rigth box that match current left box.
+            done = False
+            for xwyhlcR in detectR:
+                boxTopXR, boxWidthR, boxTopYR, boxHeightR, boxLabelR, boxClrR = xwyhlcR
+                boxCenterXR, boxCenterYR = boxTopXR + boxWidthR//2, boxTopYR + boxHeightR//2
+
+                if boxLabelL == boxLabelR:
+                    if boxTopXL <= boxCenterXR <= boxTopXL + boxWidthL:
+                        if boxTopYL <= boxCenterYR <= boxTopYL + boxHeightL:
+                            disparity = boxCenterXL - boxCenterXR
+                            depthL = baselineLeft*focXLeft/disparity
+                            textL = 'depth: %.1f'%depthL
+                            cv2.putText(frameL, textL, (boxTopXL, boxTopYL + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, boxClrL, 2)
+                            depthR = baselineRight*focXRight/disparity
+                            textR = 'depth: %.1f'%depthR
+                            cv2.putText(frameR, textR, (boxTopXR, boxTopYR + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, boxClrR, 2)
+                            done = True
+
+                if done:
+                    break
+
+        return frameL, frameR
 
     def _runDepth(self, frameL, frameR):
         # Convert frames to grayscale.
