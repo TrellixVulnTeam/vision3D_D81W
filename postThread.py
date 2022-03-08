@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling postprocessing."""
+
 # Imports.
 import os
 import numpy as np
@@ -14,11 +16,17 @@ import kalman
 logger = logging.getLogger('post')
 
 class PostThreadSignals(QObject):
+    """Postprocessing signals."""
+
     # Signals enabling to update application from thread.
     updatePostFrame = pyqtSignal(np.ndarray, str, str) # Update postprocessed frame (depth, ...).
 
 class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
+    """Thread handling postprocessing."""
+
     def __init__(self, args, threadLeft, threadRight, vision3D):
+        """Initialisation."""
+
         # Initialise.
         super().__init__()
         self._args = args.copy()
@@ -58,6 +66,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
 
     def onParameterChanged(self, param, objType, value):
+        """Callback triggered on parameter change."""
+
         # Lots of events may be spawned: check impact is needed.
         newValue = None
         if objType == 'int':
@@ -93,6 +103,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._args[param] = newValue
 
     def run(self):
+        """Run."""
+
         # Execute post-processing.
         while self._run:
             # Debug on demand.
@@ -158,10 +170,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             self._args['updatePostFrameSize'] = frame.nbytes
 
     def stop(self):
+        """Stop."""
+
         # Stop thread.
         self._run = False
 
     def updatePrepFrame(self, frame, dct, params):
+        """Callback triggered on incoming preprocessed frame."""
+
         # Postprocess incoming frame.
         self._postLock.acquire()
         side = dct['side']
@@ -172,6 +188,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._postLock.release()
 
     def _setupYOLO(self, labels, colors):
+        """Setup YOLO inputs."""
+
         # Load our YOLO object detector trained on COCO dataset (80 classes).
         net = cv2.dnn.readNetFromDarknet('yolov3-tiny.cfg', 'yolov3-tiny.weights')
 
@@ -186,6 +204,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._detect['YOLO']['ln'] = ln
 
     def _setupSSD(self, labels, colors):
+        """Setup SSD inputs."""
+
         # Load our SSD object detector.
         protoTxt = os.path.join('models_VGGNet_coco_SSD_512x512', 'models', 'VGGNet',
                                 'coco', 'SSD_512x512', 'deploy.prototxt')
@@ -204,6 +224,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._detect['SSD']['ln'] = ln
 
     def _setupENet(self):
+        """Setup ENet inputs."""
+
         # Load the cityscapes classes our ENet model was trained on.
         classes = open('enet-classes.txt').read().strip().split("\n")
 
@@ -222,6 +244,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         self._detect['ENet']['legend'] = None
 
     def _runKalman(self, frame, detections, knownKfr):
+        """Run kalman."""
+
         # Run kalman predictions over detections.
         for xwyhlc in detections:
             boxTopX, boxWidth, boxTopY, boxHeight, boxLabel, boxClr = xwyhlc
@@ -264,6 +288,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame
 
     def _runDetection(self, frame, knownKfr):
+        """Run detection."""
+
         # Construct a blob from the input frame.
         blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
@@ -346,6 +372,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, 'BGR', msg, detections
 
     def _computeDepth(self, frameL, frameR, detectL, detectR):
+        """Compute depth."""
+
         # Check if computing depth is possible.
         widthLeft, widthRight = frameL.shape[1], frameR.shape[1]
         if widthLeft != widthRight:
@@ -395,6 +423,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frameL, frameR
 
     def _runDepth(self, frameL, frameR):
+        """Run depth."""
+
         # Convert frames to grayscale.
         grayL = self._convertToGrayScale(frameL)
         grayR = self._convertToGrayScale(frameR)
@@ -413,6 +443,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, 'GRAY', msg
 
     def _computeKeypoints(self, frameL, frameR):
+        """Compute keypoints."""
+
         # To achieve more accurate results, convert frames to grayscale.
         grayL = self._convertToGrayScale(frameL)
         grayR = self._convertToGrayScale(frameR)
@@ -453,6 +485,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return kptL, kptR, bestMatches, msg
 
     def _runKeypoints(self, frameL, frameR):
+        """Run keypoints."""
+
         # Compute keypoints.
         kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
         if len(kptL) == 0 or len(kptR) == 0 or len(bestMatches) == 0:
@@ -467,6 +501,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, 'BGR', msg
 
     def _runStitch(self, frameL, frameR):
+        """Run stitching."""
+
         # Compute keypoints.
         kptL, kptR, bestMatches, msg = self._computeKeypoints(frameL, frameR)
 
@@ -511,6 +547,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, fmt, msg
 
     def _runSegmentationENet(self, frame):
+        """Run segmentation using ENet."""
+
         # Construct a blob from the input frame.
         # The original ENet input image dimensions was trained on was 1024x512, so, this shape is imposed.
         blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (1024, 512), swapRB=True, crop=False)
@@ -562,6 +600,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, fmt, msg
 
     def _runSegmentationWatershed(self, frame):
+        """Run segmentation using watershed."""
+
         # Convert to gray scale.
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -605,6 +645,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, fmt, msg
 
     def _runSegmentationKMeans(self, frame):
+        """Run segmentation using k-means."""
+
         # Run KMeans segmentation.
         frame = np.float32(frame)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
@@ -622,6 +664,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame, fmt, msg
 
     def _runSegmentation(self, frame):
+        """Run segmentation."""
+
         # Run segmentation.
         if self._args['segMode'] == 'ENet':
             frame, fmt, msg = self._runSegmentationENet(frame)
@@ -634,6 +678,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
     @staticmethod
     def _cropFrame(frame):
+        """Crop frame."""
+
         # Add black borders around frame to ease thresholding.
         frame = cv2.copyMakeBorder(frame, 10, 10, 10, 10, cv2.BORDER_CONSTANT, (0, 0, 0))
 
@@ -667,6 +713,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
     @staticmethod
     def _convertToGrayScale(frame):
+        """Convert frame to gray scale."""
+
         # Convert to gray scale if needed.
         convertToGrayScale = True
         if len(frame.shape) == 3: # RGB, BGR or GRAY.
@@ -680,6 +728,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         return frame
 
     def _generateMessage(self):
+        """Generate message."""
+
         # Generate message from options.
         msg = ''
         if self._args['DBGrun']:

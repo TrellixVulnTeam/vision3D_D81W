@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling calibration."""
+
 # Imports.
 import sys
 import os
@@ -12,6 +14,8 @@ import h5py
 import glob
 
 def cmdLineArgsCalibrate(parser, addChessboard=True):
+    """Manage command line arguments related to calibration."""
+
     # Add parser command options related to calibration.
     if addChessboard:
         parser.add_argument('--chessboard', type=int, nargs=3, metavar=('CX', 'CY', 'SS'),
@@ -27,6 +31,8 @@ def cmdLineArgsCalibrate(parser, addChessboard=True):
                         help='balance (fisheye camera).')
 
 def cmdLineArgs():
+    """Manage command line arguments."""
+
     # Create parser.
     dscr = 'script designed to calibrate video streams from captured frames.'
     parser = argparse.ArgumentParser(description=dscr)
@@ -44,11 +50,15 @@ def cmdLineArgs():
     return vars(args)
 
 def getFileID(args):
+    """Get file identifier."""
+
     # Get file identifier.
     fileID = '%s%d'%(args['videoType'], args['videoID'])
     return fileID
 
 def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
+    """Check calibration: compute calibration error."""
+
     # Check camera calibration.
     meanError = 0
     for idx in range(len(obj)):
@@ -59,7 +69,9 @@ def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
     cv2.destroyAllWindows()
     input('    Press any key to continue...')
 
-def calibrateCameraFisheye(args, obj, img, shape):
+def calibrateFisheyeCamera(args, obj, img, shape):
+    """Run fisheye calibration."""
+
     # Fisheye camera calibration.
     mtx = np.zeros((3, 3))
     dist = np.zeros((4, 1))
@@ -83,7 +95,9 @@ def calibrateCameraFisheye(args, obj, img, shape):
 
     return mtx, dist
 
-def calibrateCamera(args, obj, img, shape):
+def calibrateStandardCamera(args, obj, img, shape):
+    """Run standard calibration."""
+
     # Camera calibration.
     flags = cv2.CALIB_FIX_INTRINSIC
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
@@ -109,6 +123,8 @@ def calibrateCamera(args, obj, img, shape):
     return mtx, dist
 
 def chessboardCalibration(args, frame, obj, img, delay=0, msg='    Calibration:'):
+    """Calibrate using chessboard recognition."""
+
     # Termination criteria.
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
 
@@ -147,6 +163,8 @@ def chessboardCalibration(args, frame, obj, img, delay=0, msg='    Calibration:'
     return ret
 
 def initFrames(args):
+    """Initialise frames from previously saved images."""
+
     # Initialise frames needed for calibration.
     frames = []
     obj = [] # 3d point in real world space
@@ -166,6 +184,8 @@ def initFrames(args):
     return frames, obj, img, shape
 
 def modifyCameraIntrinsics(args, mtx, dist, shape):
+    """Modify camera intrinsics."""
+
     # Modify camera intrinsics according to distortion parameters.
     newCamMtx, roiCam = None, False
     if args['fisheye']:
@@ -180,6 +200,8 @@ def modifyCameraIntrinsics(args, mtx, dist, shape):
     return newCamMtx, roiCam
 
 def initCalibration(args):
+    """Initialise calibration parameters from previously saved h5 file."""
+
     # Initialise calibration parameters if available.
     mtx, dist, newCamMtx = None, None, None
     shape = None
@@ -198,20 +220,24 @@ def initCalibration(args):
     return mtx, dist, newCamMtx
 
 def runCalibration(args):
+    """Run calibration."""
+
     # Calibrate camera.
     frames, obj, img, shape = initFrames(args)
     assert len(frames) > 0, 'no frame, no calibration.'
     print('  Calibrating...', flush=True)
     mtx, dist = None, None
     if args['fisheye']:
-        mtx, dist = calibrateCameraFisheye(args, obj, img, shape)
+        mtx, dist = calibrateFisheyeCamera(args, obj, img, shape)
     else:
-        mtx, dist = calibrateCamera(args, obj, img, shape)
+        mtx, dist = calibrateStandardCamera(args, obj, img, shape)
     newCamMtx, roiCam = modifyCameraIntrinsics(args, mtx, dist, shape)
 
     return mtx, dist, newCamMtx
 
 def main():
+    """Main function."""
+
     # Get command line arguments.
     args = cmdLineArgs()
 

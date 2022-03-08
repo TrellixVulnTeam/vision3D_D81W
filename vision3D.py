@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling 3D vision."""
+
 # Imports.
 import sys
 import os
@@ -25,7 +27,11 @@ import logging
 logger = logging.getLogger()
 
 class Vision3DEdit(QWidget):
+    """Vision edit."""
+
     def __init__(self, param, objType, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.gui = QLineEdit()
@@ -34,13 +40,19 @@ class Vision3DEdit(QWidget):
         self._vision3D = parent
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         self._vision3D.disableCalibration()
         value = self.gui.text() # Text which has been modified.
         self._vision3D.signals.changeParam.emit(self._param, self._objType, value) # Emit parameter value and type.
 
 class Vision3DCheckBox(QWidget):
+    """Vision checkbox."""
+
     def __init__(self, param, triggerDisable, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.gui = QCheckBox()
@@ -49,6 +61,8 @@ class Vision3DCheckBox(QWidget):
         self._vision3D = parent
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         if self._triggerDisable:
             self._vision3D.disableCalibration()
@@ -56,7 +70,11 @@ class Vision3DCheckBox(QWidget):
         self._vision3D.signals.changeParam.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButtonMode(QWidget):
+    """Vision mode radiobuttons."""
+
     def __init__(self, param, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.rdoBoxRaw = QRadioButton('raw')
@@ -74,6 +92,8 @@ class Vision3DRadioButtonMode(QWidget):
         grpBtn.addButton(self.rdoBoxStr)
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
@@ -83,7 +103,11 @@ class Vision3DRadioButtonMode(QWidget):
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButtonDetection(QWidget):
+    """Vision detection radiobuttons."""
+
     def __init__(self, param, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.rdoBoxYOLO = QRadioButton('YOLO')
@@ -98,6 +122,8 @@ class Vision3DRadioButtonDetection(QWidget):
         grpBtn.addButton(self.rdoBoxSSD)
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
@@ -107,7 +133,11 @@ class Vision3DRadioButtonDetection(QWidget):
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButtonKeyPoints(QWidget):
+    """Vision keypoint radiobuttons."""
+
     def __init__(self, param, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.rdoBoxORB = QRadioButton('ORB')
@@ -122,6 +152,8 @@ class Vision3DRadioButtonKeyPoints(QWidget):
         grpBtn.addButton(self.rdoBoxSIFT)
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
@@ -131,7 +163,11 @@ class Vision3DRadioButtonKeyPoints(QWidget):
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
 class Vision3DRadioButtonSegmentation(QWidget):
+    """Vision segmentation radiobuttons."""
+
     def __init__(self, param, parent=None):
+        """Initialisation."""
+
         # Initialise.
         super().__init__(parent)
         self.rdoBoxEnt = QRadioButton('ENet')
@@ -149,6 +185,8 @@ class Vision3DRadioButtonSegmentation(QWidget):
         grpBtn.addButton(self.rdoBoxKMs)
 
     def onParameterChanged(self):
+        """Callback triggered on parameter change."""
+
         # Callback on parameter change.
         rdoBtn = self.sender()
         if rdoBtn.isChecked():
@@ -158,16 +196,22 @@ class Vision3DRadioButtonSegmentation(QWidget):
             self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
 
 class Vision3DSignals(QObject):
+    """Vision signals."""
+
     # Signals enabling to update threads from application.
     changeParam = pyqtSignal(str, str, object) # May be int, double, ...
     stop = pyqtSignal() # GUI is closed.
 
 class Vision3D(QWidget):
+    """Vision main GUI."""
+
     # Signals enabling to update thread from application.
     calibratedThreadsLock = threading.Lock()
     calibratedThreads = 0
 
     def __init__(self, args):
+        """Initialisation."""
+
         # Initialise.
         super().__init__()
         self.setWindowTitle('Vision3D')
@@ -212,6 +256,8 @@ class Vision3D(QWidget):
         self._createThreads()
 
     def updatePrepFrame(self, frame, dct):
+        """Callback triggered on incoming preprocessed frame."""
+
         # Update thread image.
         side = dct['side']
         imgLbl = self._imgLblLeft if side == 'left' else self._imgLblRight
@@ -225,6 +271,8 @@ class Vision3D(QWidget):
         txtLbl.setText(lbl + ' - FPS %d'%dct['fps'])
 
     def updatePostFrame(self, frame, fmt, msg):
+        """Callback triggered on incoming postprocessed frame."""
+
         # Update thread image.
         qtImg = self._convertCvQt(frame, fmt=fmt)
         self._imgLblPost.setPixmap(qtImg)
@@ -235,6 +283,8 @@ class Vision3D(QWidget):
         self._txtLblPost.setText(lbl + ' - ' + msg)
 
     def calibrationDone(self, vidID, hasROI, params):
+        """Callback triggered when calibration is done."""
+
         # Re-enable radio buttons when both threads are calibrated.
         self.calibratedThreadsLock.acquire()
         self.calibratedThreads += vidID
@@ -264,6 +314,8 @@ class Vision3D(QWidget):
         self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
+        """Disabling GUI during calibration."""
+
         # Disable access to calibration parameters to prevent thread overflow.
         self.v3DRdoBtnMode.rdoBoxRaw.setEnabled(False)
         self.v3DRdoBtnMode.rdoBoxUnd.setEnabled(False)
@@ -280,12 +332,16 @@ class Vision3D(QWidget):
         self._ckbROI.gui.setEnabled(False)
 
     def closeEvent(self, event):
+        """Callback triggered when GUI is closed."""
+
         # Close application.
         self.signals.stop.emit() # Warn threads to stop.
         self._threadPool.waitForDone() # Wait for threads to stop.
         event.accept()
 
     def _createParameters(self):
+        """Create parameters."""
+
         # Create video parameters.
         grpBox = QGroupBox('Parameters')
         grpBoxLay = QGridLayout()
@@ -333,7 +389,7 @@ class Vision3D(QWidget):
                                        enable=True, objType='double', tooltip=tooltip)
         self._args['ROI'] = False
         self._ckbROI = self._createChkBoxParameters(grpBoxLay, 'ROI', 2, 9, rowSpan=2)
-        self._createChkBoxParametersPost(grpBoxLay)
+        self._createPost(grpBoxLay)
         self._args['DBGcapt'] = False
         self._createChkBoxParameters(grpBoxLay, 'DBGcapt', 1, 28)
         self._args['DBGpost'] = False
@@ -354,6 +410,8 @@ class Vision3D(QWidget):
     def _createEditParameters(self, grpBoxLay, param, row, col,
                               rowSpanLbl=1, colSpanLbl=1, rowSpanGUI=1, colSpanGUI=1,
                               enable=False, objType='int', tooltip=None, colOffset=2):
+        """Create edit parameters."""
+
         # Create one parameter.
         lbl = QLabel(param)
         v3DEdt = Vision3DEdit(param, objType, parent=self)
@@ -375,6 +433,8 @@ class Vision3D(QWidget):
         return v3DEdt
 
     def _createChkBoxParameters(self, grpBoxLay, param, row, col, triggerDisable=False, rowSpan=1, colSpan=1):
+        """Create checkbox parameters."""
+
         # Create one parameter.
         lbl = QLabel(param)
         v3DChkBox = Vision3DCheckBox(param, triggerDisable, parent=self)
@@ -388,6 +448,8 @@ class Vision3D(QWidget):
         return v3DChkBox
 
     def _createRdoButMode(self, grpBoxLay, param, row, col):
+        """Create mode radiobuttons."""
+
         # Create GUI for mode.
         lbl = QLabel(param)
         self.v3DRdoBtnMode = Vision3DRadioButtonMode(param, parent=self)
@@ -402,7 +464,9 @@ class Vision3D(QWidget):
         grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxUnd, row+2, col)
         grpBoxLay.addWidget(self.v3DRdoBtnMode.rdoBoxStr, row+3, col)
 
-    def _createChkBoxParametersPostDetection(self, grpBoxLay, row, col):
+    def _createDetectionPost(self, grpBoxLay, row, col):
+        """Create detection radiobuttons."""
+
         # Create GUI for detection.
         self._args['detectMode'] = 'YOLO'
         self.v3DRdoBtnDetect = Vision3DRadioButtonDetection('detectMode', parent=self)
@@ -419,7 +483,9 @@ class Vision3D(QWidget):
         self._args['tracking'] = False
         self._createChkBoxParameters(grpBoxLay, 'tracking', row, col+4)
 
-    def _createChkBoxParametersPostKeypoints(self, grpBoxLay, row, col):
+    def _createKeypointPost(self, grpBoxLay, row, col):
+        """Create keypoint radiobuttons."""
+
         # Create GUI for keypoints.
         self._args['kptMode'] = 'ORB'
         self.v3DRdoBtnKpt = Vision3DRadioButtonKeyPoints('kptMode', parent=self)
@@ -432,7 +498,9 @@ class Vision3D(QWidget):
         self._args['nbFeatures'] = 100
         self._createEditParameters(grpBoxLay, 'nbFeatures', row, col+2, enable=True, objType='int')
 
-    def _createChkBoxParametersSegmentation(self, grpBoxLay, row, col):
+    def _createSegmentationPost(self, grpBoxLay, row, col):
+        """Create segmentation radiobuttons."""
+
         # Create GUI for keypoints.
         self._args['segMode'] = 'Watershed'
         self.v3DRdoBtnSeg = Vision3DRadioButtonSegmentation('segMode', parent=self)
@@ -450,11 +518,13 @@ class Vision3D(QWidget):
         self._args['attempts'] = 3
         self._createEditParameters(grpBoxLay, 'attempts', row, col+3, enable=True, objType='int')
 
-    def _createChkBoxParametersPost(self, grpBoxLay):
+    def _createPost(self, grpBoxLay):
+        """Create postprocessing GUI."""
+
         # Create GUI for postprocessing.
         self._args['detection'] = False
         detectChkBox = self._createChkBoxParameters(grpBoxLay, 'detection', 0, 10)
-        self._createChkBoxParametersPostDetection(grpBoxLay, 0, 22)
+        self._createDetectionPost(grpBoxLay, 0, 22)
         self._args['depth'] = False
         depthChkBox = self._createChkBoxParameters(grpBoxLay, 'depth', 1, 10)
         self._args['numDisparities'] = 16
@@ -463,14 +533,14 @@ class Vision3D(QWidget):
         self._createEditParameters(grpBoxLay, 'blockSize', 1, 25, enable=True, objType='int')
         self._args['keypoints'] = False
         kptChkBox = self._createChkBoxParameters(grpBoxLay, 'keypoints', 2, 10)
-        self._createChkBoxParametersPostKeypoints(grpBoxLay, 2, 22)
+        self._createKeypointPost(grpBoxLay, 2, 22)
         self._args['stitch'] = False
         stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
         self._args['crop'] = False
         cropChkBox = self._createChkBoxParameters(grpBoxLay, 'crop', 3, 24)
         self._args['segmentation'] = False
         segChkBox = self._createChkBoxParameters(grpBoxLay, 'segmentation', 4, 10)
-        self._createChkBoxParametersSegmentation(grpBoxLay, 4, 22)
+        self._createSegmentationPost(grpBoxLay, 4, 22)
         grpBtn = QButtonGroup(self)
         grpBtn.setExclusive(True) # Make radio button exclusive.
         grpBtn.addButton(detectChkBox.gui)
@@ -481,6 +551,8 @@ class Vision3D(QWidget):
 
     @staticmethod
     def _downloadDNNPreTrainedModels():
+        """Download pretrained DNN models."""
+
         # Download COCO dataset labels.
         if not os.path.isfile('coco.names'):
             wget.download('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names')
@@ -524,6 +596,8 @@ class Vision3D(QWidget):
             logger.info('[vision3D] enet-model.net has already been downloaded.')
 
     def _createThreads(self):
+        """Create video threads."""
+
         # Start threads.
         self.signals = Vision3DSignals()
         self._threadPool = QThreadPool() # QThreadPool must be used with QRunnable (NOT QThread).
@@ -543,6 +617,8 @@ class Vision3D(QWidget):
         self._threadPool.start(self._threadPost)
 
     def _getFrameSize(self):
+        """Get frame size."""
+
         # Get frame size.
         displayHeight, displayWidth = 0, 0
         if self._args['hardware'] == 'arm-jetson':
@@ -554,6 +630,8 @@ class Vision3D(QWidget):
         return displayHeight, displayWidth
 
     def _resetLabels(self):
+        """Reset labels."""
+
         # Resize images.
         displayHeight, displayWidth = self._getFrameSize()
         self._imgLblLeft.resize(displayWidth, displayHeight)
@@ -568,6 +646,8 @@ class Vision3D(QWidget):
         self.updatePostFrame(frame, 'GRAY', 'None')
 
     def _convertCvQt(self, frame, fmt='BGR'):
+        """Convert OpenCV image to Qt image."""
+
         # Convert frame to pixmap.
         qtImg = None
         if fmt == 'BGR':
@@ -585,6 +665,8 @@ class Vision3D(QWidget):
         return QPixmap.fromImage(qtImg)
 
 def cmdLineArgs():
+    """Manage command line arguments."""
+
     # Create parser.
     dscr = 'script designed for 3D vision.'
     parser = argparse.ArgumentParser(description=dscr)

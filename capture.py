@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling capture."""
+
 # Imports.
 import sys
 import argparse
@@ -17,6 +19,8 @@ saveEvent = False
 quitEvent = False
 
 def cmdLineArgs():
+    """Manage command line arguments."""
+
     # Create parser.
     dscr = 'script designed to capture frames from video stream for later calibration.'
     parser = argparse.ArgumentParser(description=dscr)
@@ -34,13 +38,19 @@ def cmdLineArgs():
     return vars(args)
 
 class CaptureThread(threading.Thread):
+    """Thread handling capture."""
+
     def __init__(self, args):
+        """Initialisation."""
+
         # Initialise.
         super().__init__()
         self._args = args.copy()
         self._idxFrame = self._args['startIdx']
 
     def run(self):
+        """Run."""
+
         # Capture frames.
         vid = VideoStream(self._args)
         vidID = self._args['videoID']
@@ -72,6 +82,8 @@ class CaptureThread(threading.Thread):
         cv2.destroyAllWindows()
 
     def save(self, frame):
+        """Save."""
+
         # Check VISUALLY if chessboards are PROPERLY found on BOTH frames: MANDATORY for correct stereo calibration.
         vidID = self._args['videoID']
         print('stream%02d: looking for chessboard...'%vidID, flush=True)
@@ -97,6 +109,8 @@ class CaptureThread(threading.Thread):
         sync.wait() # All threads wait for each others.
 
 def main():
+    """Main function."""
+
     # Get command line arguments.
     args = cmdLineArgs()
 

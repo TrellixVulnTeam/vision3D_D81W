@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling video stream."""
+
 # Imports.
 import time
 import cv2
 import argparse
 
 def cmdLineArgsVideoStream(parser, stereo=True, strLeftReq=True, strRightReq=True):
+    """Manage command line arguments related to video stream."""
+
     # Add parser command options related to the video stream.
     if stereo:
         parser.add_argument('--videoIDLeft', type=int, required=strLeftReq, metavar='ID',
@@ -36,9 +40,11 @@ def cmdLineArgsVideoStream(parser, stereo=True, strLeftReq=True, strRightReq=Tru
                         help='define display height')
 
 class VideoStream():
-    # Handle a video capture stream.
+    """Handling video capture stream."""
 
     def __init__(self, args):
+        """Initialisation."""
+
         # Create a video capture stream.
         self._vid, self._nbFrames, self._start = None, 0, time.time()
         vidType = args['videoType']
@@ -57,10 +63,14 @@ class VideoStream():
         self.height = args['videoCapHeight']
 
     def isOpened(self):
+        """Check if the stream is opened."""
+
         # Delegate to private data member.
         return self._vid.isOpened()
 
     def read(self):
+        """Read stream."""
+
         # Delegate to private data member.
         frameOK, frame = self._vid.read()
 
@@ -71,11 +81,15 @@ class VideoStream():
         return frameOK, frame, fps
 
     def release(self):
+        """Release stream."""
+
         # Delegate to private data member.
         self._vid.release()
 
     @staticmethod
     def _gstreamerPipeline(args):
+        """Get gstreamer pipeline."""
+
         # Get gstreamer pipeline.
         cmd, vidType = None, args['videoType']
         if vidType == 'USB':

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 
+"""Handling video."""
+
 # Imports.
 from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 from videoStream import VideoStream
@@ -15,12 +17,18 @@ import logging
 logger = logging.getLogger('capt')
 
 class VideoThreadSignals(QObject):
+    """Video signals."""
+
     # Signals enabling to update application from thread.
     updatePrepFrame = pyqtSignal(np.ndarray, dict, dict) # Update preprocessed frame (after undistort / stereo).
     calibrationDone = pyqtSignal(int, bool, dict)
 
 class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThread).
+    """Thread handling video."""
+
     def __init__(self, vidID, args, vision3D):
+        """Initialisation."""
+
         # Initialise.
         super().__init__()
         self._args = args.copy()
@@ -76,6 +84,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         logger.info(msg)
 
     def onParameterChanged(self, param, objType, value):
+        """Callback triggered on parameter change."""
+
         # Lots of events may be spawned: check impact is needed.
         newValue = None
         if objType == 'int':
@@ -113,6 +123,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             self._emitCalibrationDoneSignal() # Enable GUI (no impact).
 
     def run(self):
+        """Run."""
+
         # Retrieve constant calibration parameters.
         mtx, dist, fps = self._cal['mtx'], self._cal['dist'], 0
 
@@ -133,10 +145,14 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         self._vid.release()
 
     def stop(self):
+        """Stop."""
+
         # Stop thread.
         self._run = False
 
     def _calibrate(self):
+        """Calibrate."""
+
         # Check if calibration is needed:
         if self._args['mode'] == 'raw':
             self._args['roiCam'] = False # ROI has no meaning here.
@@ -216,6 +232,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _calibrateWithFisheyeCalibration(self, obj,
                                          imgL, mtxL, newCamMtxL, distL, shapeL,
                                          imgR, mtxR, newCamMtxR, distR, shapeR):
+        """Fisheye calibration using calibration parameters."""
+
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
         flags = cv2.fisheye.CALIB_FIX_SKEW # Do NOT use cv2.fisheye.CALIB_CHECK_COND.
@@ -257,6 +275,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _calibrateWithCalibration(self, obj,
                                   imgL, mtxL, newCamMtxL, distL, shapeL,
                                   imgR, mtxR, newCamMtxR, distR, shapeR):
+        """Standard calibration using calibration parameters."""
+
         # Stereo calibration of both cameras.
         # Intrinsic camera matrices stay unchanged, but, rotation/translation/essential/fundamental matrices are computed.
         flags = cv2.CALIB_FIX_INTRINSIC
@@ -291,6 +311,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
     def _calibrateWithoutCalibration(self,
                                      imgL, mtxL, newCamMtxL, distL, shapeL,
                                      imgR, mtxR, newCamMtxR, distR, shapeR):
+        """Standard calibration without calibration parameters."""
+
         # Compute fundamental matrix without knowing intrinsic parameters of the cameras and their relative positions.
         imgPtsL = []
         for img in imgL:
@@ -320,6 +342,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             del self._args['trans']
 
     def _runCapture(self, mtx, dist):
+        """Run capture."""
+
         # Get frame and process it.
         frameOK, frame, fps = self._vid.read()
         if frameOK:
@@ -358,6 +382,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         return fps
 
     def _runCalibration(self):
+        """Run calibration."""
+
         # Apply change only before new  calibration.
         param, newValue = self._needCalibration
         self._args[param] = newValue
@@ -374,12 +400,16 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         self._emitCalibrationDoneSignal()
 
     def _emitCalibrationDoneSignal(self):
+        """Emit signal when calibration is done."""
+
         # Emit 'calibration done' signal.
         hasROI = False if self._args['roiCam'] is False else True
         params = self._createParams()
         self.signals.calibrationDone.emit(self._args['videoID'], hasROI, params)
 
     def _createParams(self):
+        """Create parameters."""
+
         # Create calibration parameters dictionary.
         focX = -1.
         if self._args['mode'] != 'raw' and 'newCamMtx' in self._args:
@@ -400,6 +430,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         return params
 
     def _generateMessage(self, dbgRun=False):
+        """Generate message."""
+
         # Generate message from options.
         msg = ''
         if dbgRun or self._args['DBGrun']:
