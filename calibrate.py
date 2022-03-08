@@ -88,7 +88,8 @@ def calibrateCamera(args, obj, img, shape):
     flags = cv2.CALIB_FIX_INTRINSIC
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
     ret, mtx, dist, rvecs, tvecs, stdDevInt, stdDevExt, perViewErr = cv2.calibrateCameraExtended(obj, img, shape, None, None,
-                                                                                                 flags=flags, criteria=criteria)
+                                                                                                 flags=flags,
+                                                                                                 criteria=criteria)
     fileID = getFileID(args)
     fdh = h5py.File('%s-std.h5'%fileID, 'w')
     fdh.create_dataset('ret', data=ret)

@@ -37,7 +37,7 @@ class Vision3DEdit(QWidget):
         # Callback on parameter change.
         self._vision3D.disableCalibration()
         value = self.gui.text() # Text which has been modified.
-        self._vision3D.signals.changeParam.emit(self._param, self._objType, value) # Emit value and associated parameter / type.
+        self._vision3D.signals.changeParam.emit(self._param, self._objType, value) # Emit parameter value and type.
 
 class Vision3DCheckBox(QWidget):
     def __init__(self, param, triggerDisable, parent=None):
@@ -509,16 +509,17 @@ class Vision3D(QWidget):
             logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
 
         # Download ENet files.
+        argoLabs = 'https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/'
         if not os.path.isfile('enet-classes.txt'):
-            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-classes.txt')
+            wget.download(argoLabs + 'opencv-semantic-segmentation/enet-cityscapes/enet-classes.txt')
         else:
             logger.info('[vision3D] enet-classes.txt has already been downloaded.')
         if not os.path.isfile('enet-colors.txt'):
-            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-colors.txt')
+            wget.download(argoLabs + 'opencv-semantic-segmentation/enet-cityscapes/enet-colors.txt')
         else:
             logger.info('[vision3D] enet-colors.txt has already been downloaded.')
         if not os.path.isfile('enet-model.net'):
-            wget.download('https://raw.githubusercontent.com/ishacusp/ARGO_Labs/master/opencv-semantic-segmentation/enet-cityscapes/enet-model.net')
+            wget.download(argoLabs + 'opencv-semantic-segmentation/enet-cityscapes/enet-model.net')
         else:
             logger.info('[vision3D] enet-model.net has already been downloaded.')
 
