@@ -12,11 +12,11 @@ from calibrate import cmdLineArgsCalibrate, chessboardCalibration
 import cv2
 
 # Synchronisation barrier.
-sync = None
+SYNC = None
 
 # Global variables used as signal events to connect/emit all threads to each others.
-saveEvent = False
-quitEvent = False
+SAVE_EVENT = False
+QUIT_EVENT = False
 
 def cmdLineArgs():
     """Manage command line arguments."""
@@ -54,7 +54,7 @@ class CaptureThread(threading.Thread):
         # Capture frames.
         vid = VideoStream(self._args)
         vidID = self._args['videoID']
-        global quitEvent, saveEvent
+        global QUIT_EVENT, SAVE_EVENT
         while vid.isOpened():
             # Get video frame.
             frameOK, frame, fps = vid.read()
@@ -67,17 +67,17 @@ class CaptureThread(threading.Thread):
             # Wait for user action.
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'): # Press 'q' to quit.
-                quitEvent = True
+                QUIT_EVENT = True
             if key == ord('s'): # Press 's' to save.
-                saveEvent = True
+                SAVE_EVENT = True
 
             # Execute user action.
-            if quitEvent:
+            if QUIT_EVENT:
                 print(f"stream{vidID:02d}: exiting...", flush=True)
                 break
-            if saveEvent:
+            if SAVE_EVENT:
                 self.save(frame) # Both threads must take the same picture at the same time.
-                saveEvent = False # All threads reset save flag.
+                SAVE_EVENT = False # All threads reset save flag.
         vid.release()
         cv2.destroyAllWindows()
 
@@ -89,7 +89,7 @@ class CaptureThread(threading.Thread):
         print(f"stream{vidID:02d}: looking for chessboard...", flush=True)
         obj, img = [], []
         ret = chessboardCalibration(self._args, frame, obj, img, msg=f"stream{vidID:02d}:")
-        sync.wait() # Wait for all chessboards (from all threads) to be checked.
+        SYNC.wait() # Wait for all chessboards (from all threads) to be checked.
 
         # Wait to know if chessboard corners are found properly.
         key = None
@@ -98,7 +98,7 @@ class CaptureThread(threading.Thread):
                 key = input(f"stream{vidID:02d}: keep? [y/n] ")
         else:
             print(f"stream{vidID:02d}: drop", flush=True)
-        sync.wait() # Wait for all answers (from all threads): keep? drop?
+        SYNC.wait() # Wait for all answers (from all threads): keep? drop?
 
         # Save frame on demand.
         if key == 'y':
@@ -106,7 +106,7 @@ class CaptureThread(threading.Thread):
             fileID = f"{self._args['videoType']}{self._args['videoID']}"
             cv2.imwrite(f"{fileID}-{self._idxFrame:02d}.jpg", frame)
             self._idxFrame += 1
-        sync.wait() # All threads wait for each others.
+        SYNC.wait() # All threads wait for each others.
 
 def main():
     """Main function."""
@@ -124,8 +124,8 @@ def main():
 
     # Create barrier to get threads to do things step-by-step.
     nbThreads = 2 if strThd is not None else 1
-    global sync
-    sync = threading.Barrier(nbThreads)
+    global SYNC
+    SYNC = threading.Barrier(nbThreads)
 
     # Start threads.
     mainThd.start()
