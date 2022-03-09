@@ -61,8 +61,8 @@ def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
 
     # Check camera calibration.
     meanError = 0
-    for idx in range(len(obj)):
-        imgPrj, _ = cv2.projectPoints(obj[idx], rvecs[idx], tvecs[idx], mtx, dist)
+    for idx, objPt in enumerate(obj):
+        imgPrj, _ = cv2.projectPoints(objPt, rvecs[idx], tvecs[idx], mtx, dist)
         error = cv2.norm(img[idx], imgPrj, cv2.NORM_L2)/len(imgPrj)
         meanError += error
     print(f"    Total error: {meanError/len(obj)}")
