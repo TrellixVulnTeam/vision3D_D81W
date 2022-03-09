@@ -251,7 +251,7 @@ def main():
     # Capture video stream.
     vid = VideoStream(args)
     print('Capturing frames...', flush=True)
-    while(vid.isOpened()):
+    while vid.isOpened():
         # Get video frame.
         frameOK, frame, fps = vid.read()
         if not frameOK:

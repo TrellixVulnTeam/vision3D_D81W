@@ -55,7 +55,7 @@ class CaptureThread(threading.Thread):
         vid = VideoStream(self._args)
         vidID = self._args['videoID']
         global quitEvent, saveEvent
-        while(vid.isOpened()):
+        while vid.isOpened():
             # Get video frame.
             frameOK, frame, fps = vid.read()
             if not frameOK:
