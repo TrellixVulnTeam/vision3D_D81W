@@ -2,7 +2,7 @@
 
 pylint --module-naming-style=camelCase          \
        --const-naming-style=camelCase           \
-       --class-naming-style=camelCase           \
+       --class-naming-style=PascalCase          \
        --function-naming-style=camelCase        \
        --method-naming-style=camelCase          \
        --attr-naming-style=camelCase            \
@@ -16,4 +16,4 @@ pylint --module-naming-style=camelCase          \
        |                                        \
        awk 'BEGIN{rate = 0;}
             {print $0; if ($2 == "code" && $5 == "rated") {split($7, tokens, "/"); rate=tokens[1];}}
-            END{print "rate = " rate; if (strtonum(rate) < 8.10) {print "KO - rate regression"; exit(1);};}'
+            END{print "rate = " rate; if (strtonum(rate) < 8.20) {print "KO - rate regression"; exit(1);};}'
