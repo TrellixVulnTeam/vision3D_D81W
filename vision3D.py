@@ -268,7 +268,7 @@ class Vision3D(QWidget):
         txtLbl = self._txtLblLeft if side == 'left' else self._txtLblRight
         txt = txtLbl.text()
         lbl = txt.split()[0] # Suppress old FPS: get first word (title).
-        txtLbl.setText(lbl + ' - FPS %d'%dct['fps'])
+        txtLbl.setText(f"{lbl} - FPS {dct['fps']}")
 
     def updatePostFrame(self, frame, fmt, msg):
         """Callback triggered on incoming postprocessed frame."""
@@ -304,13 +304,13 @@ class Vision3D(QWidget):
                 v3DEdt.gui.setEnabled(True)
             self._ckbROI.gui.setEnabled(hasROI)
         if 'focXLeft' in params:
-            self._focXLeft.gui.setText('%.1f'%params['focXLeft'])
+            self._focXLeft.gui.setText(f"{params['focXLeft']:.1f}")
         if 'focXRight' in params:
-            self._focXRight.gui.setText('%.1f'%params['focXRight'])
+            self._focXRight.gui.setText(f"{params['focXRight']:.1f}")
         if 'baselineLeft' in params:
-            self._baselineLeft.gui.setText('%.1f'%params['baselineLeft'])
+            self._baselineLeft.gui.setText(f"{params['baselineLeft']:.1f}")
         if 'baselineRight' in params:
-            self._baselineRight.gui.setText('%.1f'%params['baselineRight'])
+            self._baselineRight.gui.setText(f"{params['baselineRight']:.1f}")
         self.calibratedThreadsLock.release()
 
     def disableCalibration(self):
@@ -660,7 +660,7 @@ class Vision3D(QWidget):
             channel = 1
             bytesPerLine = channel * displayWidth
             qtImg = QImage(frame, displayWidth, displayHeight, bytesPerLine, QImage.Format_Indexed8)
-        assert qtImg is not None, 'unknown CvQt conversion format %s'%fmt
+        assert qtImg is not None, f"unknown CvQt conversion format {fmt}"
 
         return QPixmap.fromImage(qtImg)
 

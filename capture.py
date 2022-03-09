@@ -62,7 +62,7 @@ class CaptureThread(threading.Thread):
                 continue
 
             # Save frame. Show it.
-            cv2.imshow('stream%02d - Video raw [s save, q quit]'%vidID, frame)
+            cv2.imshow(f"stream{vidID:02d} - Video raw [s save, q quit]", frame)
 
             # Wait for user action.
             key = cv2.waitKey(1) & 0xFF
@@ -73,7 +73,7 @@ class CaptureThread(threading.Thread):
 
             # Execute user action.
             if quitEvent:
-                print('stream%02d: exiting...'%vidID, flush=True)
+                print(f"stream{vidID:02d}: exiting...", flush=True)
                 break
             if saveEvent:
                 self.save(frame) # Both threads must take the same picture at the same time.
@@ -86,25 +86,25 @@ class CaptureThread(threading.Thread):
 
         # Check VISUALLY if chessboards are PROPERLY found on BOTH frames: MANDATORY for correct stereo calibration.
         vidID = self._args['videoID']
-        print('stream%02d: looking for chessboard...'%vidID, flush=True)
+        print(f"stream{vidID:02d}: looking for chessboard...", flush=True)
         obj, img = [], []
-        ret = chessboardCalibration(self._args, frame, obj, img, msg='stream%02d:'%vidID)
+        ret = chessboardCalibration(self._args, frame, obj, img, msg=f"stream{vidID:02d}:")
         sync.wait() # Wait for all chessboards (from all threads) to be checked.
 
         # Wait to know if chessboard corners are found properly.
         key = None
         if ret:
             while key != 'y' and key != 'n':
-                key = input('stream%02d: keep? [y/n] '%vidID)
+                key = input(f"stream{vidID:02d}: keep? [y/n] ")
         else:
-            print('stream%02d: drop'%vidID, flush=True)
+            print(f"stream{vidID:02d}: drop", flush=True)
         sync.wait() # Wait for all answers (from all threads): keep? drop?
 
         # Save frame on demand.
         if key == 'y':
-            print('stream%02d: saving frame %02d...'%(vidID, self._idxFrame), flush=True)
-            fileID = '%s%d'%(self._args['videoType'], self._args['videoID'])
-            cv2.imwrite(fileID + '-%02d.jpg'%self._idxFrame, frame)
+            print(f"stream{vidID:02d}: saving frame {self._idxFrame:02d}...", flush=True)
+            fileID = f"{self._args['videoType']}{self._args['videoID']}"
+            cv2.imwrite(f"{fileID}-{self._idxFrame:02d}.jpg", frame)
             self._idxFrame += 1
         sync.wait() # All threads wait for each others.
 

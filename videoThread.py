@@ -46,15 +46,15 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
 
         # Get camera calibration parameters from target camera.
         self._cal = {}
-        fileID = '%s%d'%(args['videoType'], vidID)
+        fileID = f"{args['videoType']}{vidID}"
         calibType = 'fsh' if args['fisheye'] else 'std'
-        fname = '%s-%s.h5'%(fileID, calibType)
+        fname = f"{fileID}-{calibType}.h5"
         if os.path.isfile(fname):
             fdh = h5py.File(fname, 'r')
             for key in fdh:
                 self._cal[key] = fdh[key][...]
             fdh.close()
-        assert len(self._cal.keys()) > 0, 'camera %d is not calibrated.'%vidID
+        assert len(self._cal.keys()) > 0, f"camera {vidID} is not calibrated."
 
         # Set up info/debug log on demand.
         logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
@@ -70,17 +70,17 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             self._stereo['side'] = 'left'
             vidIDStr = self._args['videoIDLeft']
         assert vidIDStr is not None, 'can t get other camera.'
-        fileIDStr = '%s%d'%(args['videoType'], vidIDStr)
-        fnameStr = '%s-%s.h5'%(fileIDStr, calibType)
+        fileIDStr = f"{args['videoType']}{vidIDStr}"
+        fnameStr = f"{fileIDStr}-{calibType}.h5"
         if os.path.isfile(fnameStr):
             fdh = h5py.File(fnameStr, 'r')
             for key in fdh:
                 self._stereo[key] = fdh[key][...]
             fdh.close()
-        assert len(self._stereo.keys()) > 0, 'camera %d is not calibrated.'%vidIDStr
-        msg = '[stream%02d-ini]'%self._args['videoID']
-        msg += ' side %s-%02d (stereo %s-%02d)'%(self._cal['side'], vidID, self._stereo['side'], vidIDStr)
-        msg += ', file %s (stereo %s)'%(fname, fnameStr)
+        assert len(self._stereo.keys()) > 0, f"camera {vidIDStr} is not calibrated."
+        msg = f"[stream{self._args['videoID']:02d}-ini]"
+        msg += f" side {self._cal['side']}-{vidID:02d} (stereo {self._stereo['side']}-{vidIDStr:02d})"
+        msg += f", file {fname} (stereo {fnameStr})"
         logger.info(msg)
 
     def onParameterChanged(self, param, objType, value):
@@ -132,8 +132,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         while self._run and self._vid.isOpened():
             # Debug on demand.
             if self._args['DBGcapt']:
-                msg = '[stream%02d-run]'%self._args['videoID']
-                msg += ' FPS %02d'%fps
+                msg = f"[stream{self._args['videoID']:02d}-run]"
+                msg += f" FPS {fps:02d}"
                 msg += self._generateMessage()
                 logger.debug(msg)
 
@@ -215,7 +215,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         obj = obj[:nbMinImg]
 
         # Calibrate.
-        assert self._args['mode'] == 'str', 'unknown mode %s.'%self._args['mode']
+        assert self._args['mode'] == 'str', f"unknown mode {self._args['mode']}."
         if self._args['fisheye']:
             self._calibrateWithFisheyeCalibration(obj,
                                                   imgL, mtxL, newCamMtxL, distL, shapeL,
@@ -392,8 +392,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         start = time.time()
         self._calibrate()
         stop = time.time()
-        msg = '[stream%02d-cal]'%self._args['videoID']
-        msg += ' time %.6f s'%(stop - start)
+        msg = f"[stream{self._args['videoID']:02d}-cal]"
+        msg += f" time {stop - start:.6f} s"
         msg += self._generateMessage(dbgRun=True)
         logger.info(msg)
         self._needCalibration = False
@@ -435,23 +435,23 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         # Generate message from options.
         msg = ''
         if dbgRun or self._args['DBGrun']:
-            msg += ', mode %s'%self._args['mode']
+            msg += f", mode {self._args['mode']}"
             if self._args['fisheye']:
-                msg += ', fovScale %.3f'%self._args['fovScale']
-                msg += ', balance %.3f'%self._args['balance']
+                msg += f", fovScale {self._args['fovScale']:.3f}"
+                msg += f", balance {self._args['balance']:.3f}"
             else:
-                msg += ', alpha %.3f'%self._args['alpha']
-                msg += ', CAL %s'%self._args['CAL']
-            msg += ', ROI %s'%self._args['ROI']
+                msg += f", alpha {self._args['alpha']:.3f}"
+                msg += f", CAL {self._args['CAL']}"
+            msg += f", ROI {self._args['ROI']}"
         if self._args['DBGprof']:
-            msg += ', mode %s'%self._args['mode']
+            msg += f", mode {self._args['mode']}"
             if 'undistortTime' in self._args:
-                msg += ', undistortTime %.3f'%self._args['undistortTime']
+                msg += f", undistortTime {self._args['undistortTime']:.3f}"
         if self._args['DBGcomm']:
             msg += ', comm'
             key = 'updatePrepFrameTime'
-            msg += ', %s %.3f'%(key, self._args[key])
+            msg += f", {key} {self._args[key]:.3f}"
             key = 'updatePrepFrameSize'
-            msg += ', %s %d'%(key, self._args[key])
+            msg += f", {key} {self._args[key]}"
 
         return msg

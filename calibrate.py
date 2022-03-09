@@ -53,7 +53,7 @@ def getFileID(args):
     """Get file identifier."""
 
     # Get file identifier.
-    fileID = '%s%d'%(args['videoType'], args['videoID'])
+    fileID = f"{args['videoType']}{args['videoID']}"
     return fileID
 
 def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
@@ -65,7 +65,7 @@ def calibrateCameraCheck(obj, img, rvecs, tvecs, mtx, dist):
         imgPrj, _ = cv2.projectPoints(obj[idx], rvecs[idx], tvecs[idx], mtx, dist)
         error = cv2.norm(img[idx], imgPrj, cv2.NORM_L2)/len(imgPrj)
         meanError += error
-    print('    Total error: {}'.format(meanError/len(obj)))
+    print(f"    Total error: {meanError/len(obj)}")
     cv2.destroyAllWindows()
     input('    Press any key to continue...')
 
@@ -81,7 +81,7 @@ def calibrateFisheyeCamera(args, obj, img, shape):
     ret, mtx, dist, rvecs, tvecs = cv2.fisheye.calibrate(obj, img, shape, mtx, dist,
                                                          flags=flags, criteria=criteria)
     fileID = getFileID(args)
-    fdh = h5py.File('%s-fsh.h5'%fileID, 'w')
+    fdh = h5py.File(f"{fileID}-fsh.h5", 'w')
     fdh.create_dataset('ret', data=ret)
     fdh.create_dataset('mtx', data=mtx)
     fdh.create_dataset('dist', data=dist)
@@ -105,7 +105,7 @@ def calibrateStandardCamera(args, obj, img, shape):
                                                                                                  flags=flags,
                                                                                                  criteria=criteria)
     fileID = getFileID(args)
-    fdh = h5py.File('%s-std.h5'%fileID, 'w')
+    fdh = h5py.File(f"{fileID}-std.h5", 'w')
     fdh.create_dataset('ret', data=ret)
     fdh.create_dataset('mtx', data=mtx)
     fdh.create_dataset('dist', data=dist)
@@ -145,7 +145,7 @@ def chessboardCalibration(args, frame, obj, img, delay=0, msg='    Calibration:'
 
     # If found, add object points, image points (after refining them)
     nbc = 0 if corners is None else len(corners)
-    print('%s chessboard found %s (%d corners)' % (msg, ret, nbc), flush=True)
+    print(f"{msg} chessboard found {ret} ({nbc} corners)", flush=True)
     ret = ret and (nbc == cbX*cbY) # Check all chessboard corners have been found.
     if ret == True:
         # Draw and display the corners
@@ -173,7 +173,7 @@ def initFrames(args):
     print('Loading frames...', flush=True)
     fileID = getFileID(args)
     for fname in sorted(glob.glob(fileID + '-*.jpg')):
-        print('  Loading %s...' % fname, flush=True)
+        print(f"  Loading {fname}...", flush=True)
         frame = cv2.imread(fname)
         height, width, channel = frame.shape # Numpy shapes are height / width / channel.
         shape = (width, height) # OpenCV shapes are width / height.
@@ -207,7 +207,7 @@ def initCalibration(args):
     shape = None
     fileID = getFileID(args)
     calibType = 'fsh' if args['fisheye'] else 'std'
-    fname = '%s-%s.h5'%(fileID, calibType)
+    fname = f"{fileID}-{calibType}.h5"
     if os.path.isfile(fname):
         fdh = h5py.File(fname, 'r')
         mtx = fdh['mtx'][...]
@@ -258,7 +258,7 @@ def main():
             continue
 
         # Display the resulting frame.
-        print('  FPS %d'%fps, flush=True)
+        print(f"  FPS {fps}", flush=True)
         cv2.imshow('Video raw [q quit]', frame)
         if mtx is not None and dist is not None:
             if args['fisheye']:

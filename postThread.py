@@ -134,7 +134,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 if self._args['detection']:
                     frameL, fmt, msgL, detectL = self._runDetection(frameL, self._knownKfr['left'])
                     frameR, fmt, msgR, detectR = self._runDetection(frameR, self._knownKfr['right'])
-                    msg = 'detection %s: '%self._args['detectMode'] + msgL + ', ' + msgR
+                    msg = f"detection {self._args['detectMode']}: " + msgL + ', ' + msgR
                     frameL, frameR = self._computeDepth(frameL, frameR, detectL, detectR)
                     frame = np.concatenate((frameL, frameR), axis=1)
                 elif self._args['depth']:
@@ -142,14 +142,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     msg = 'depth: ' + msg
                 elif self._args['keypoints']:
                     frame, fmt, msg = self._runKeypoints(frameL, frameR)
-                    msg = '%s keypoints: '%self._args['kptMode'] + msg
+                    msg = f"{self._args['kptMode']} keypoints: " + msg
                 elif self._args['stitch']:
                     frame, fmt, msg = self._runStitch(frameL, frameR)
                     msg = 'stitch: ' + msg
                 elif self._args['segmentation']:
                     frameL, fmt, msgL = self._runSegmentation(frameL)
                     frameR, fmt, msgR = self._runSegmentation(frameR)
-                    msg = '%s segmentation: '%self._args['segMode'] + msgL + ', ' + msgR
+                    msg = f"{self._args['segMode']} segmentation: " + msgL + ', ' + msgR
                     frame = np.concatenate((frameL, frameR), axis=1)
                     if self._args['segMode'] == 'ENet':
                         legend = self._detect['ENet']['legend']
@@ -160,7 +160,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                     msg = 'OpenCV exception!...'
             stop = time.time()
             self._args['postTime'] = stop - start
-            msg += ' - ' + 'time %.3f s'%self._args['postTime']
+            msg += ' - ' + f"time {self._args['postTime']:.3f} s"
 
             # Get image back to application.
             start = time.time()
@@ -357,12 +357,12 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 # Draw a bounding box rectangle and label on the frame.
                 color = [int(clr) for clr in colors[classIDs[idx]]]
                 cv2.rectangle(frame, (boxTopX, boxTopY), (boxTopX + boxWidth, boxTopY + boxHeight), color, 2)
-                text = "{}: {:.4f}".format(labels[classIDs[idx]], confidences[idx])
+                text = f"{labels[classIDs[idx]]}: {confidences[idx]:.4f}"
                 cv2.putText(frame, text, (boxTopX, boxTopY - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
                 # List detections.
                 detections.append((boxTopX, boxWidth, boxTopY, boxHeight, labels[classIDs[idx]], color))
-        msg = '%d hit(s)'%self._args['detectHits']
+        msg = f"{self._args['detectHits']} hit(s)"
 
         # Add tracking on demand.
         if self._args['tracking']:
@@ -410,10 +410,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                         if boxTopYL <= boxCenterYR <= boxTopYL + boxHeightL:
                             disparity = boxCenterXL - boxCenterXR
                             depthL = baselineLeft*focXLeft/disparity
-                            textL = 'depth: %.1f'%depthL
+                            textL = f"depth: {depthL:.1f}"
                             cv2.putText(frameL, textL, (boxTopXL, boxTopYL + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, boxClrL, 2)
                             depthR = baselineRight*focXRight/disparity
-                            textR = 'depth: %.1f'%depthR
+                            textR = f"depth: {depthR:.1f}"
                             cv2.putText(frameR, textR, (boxTopXR, boxTopYR + 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, boxClrR, 2)
                             done = True
 
@@ -438,7 +438,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         if np.max(scaledDisparity) > 0:
             scaledDisparity = scaledDisparity * (255/np.max(scaledDisparity))
         frame = scaledDisparity.astype(np.uint8)
-        msg = 'range 0-255, mean %03d, std %03d'%(np.mean(scaledDisparity), np.std(scaledDisparity))
+        msg = f"range 0-255, mean {np.mean(scaledDisparity):03d}, std {np.std(scaledDisparity):03d}"
 
         return frame, 'GRAY', msg
 
@@ -496,7 +496,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Draw matches.
         frame = cv2.drawMatches(frameL, kptL, frameR, kptR, bestMatches, None)
         minDist = np.min([match.distance for match in bestMatches])
-        msg = 'nb best matches %03d, min distance %.3f'%(len(bestMatches), minDist)
+        msg = f"nb best matches {len(bestMatches):03d}, min distance {minDist:.3f}"
 
         return frame, 'BGR', msg
 
@@ -531,7 +531,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             frame = cv2.warpPerspective(frameR, homoTranslation.dot(homo), (xMax-xMin, yMax-yMin))
             frame[transDist[1]:rowsL+transDist[1], transDist[0]:colsL+transDist[0]] = frameL
             fmt = 'BGR'
-            msg += 'OK (%03d %s keypoints)'%(len(bestMatches), self._args['kptMode'])
+            msg += f"OK ({len(bestMatches):03d} {self._args['kptMode']} keypoints)"
 
             # Crop on demand.
             if self._args['crop']:
@@ -542,7 +542,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         else:
             frame = np.ones(frameL.shape, np.uint8) # Black image.
             fmt = 'GRAY'
-            msg += 'KO not enough matches found (%03d/%03d)'%(len(bestMatches), minMatchCount)
+            msg += f"KO not enough matches found ({len(bestMatches):03d}/{minMatchCount:03d})"
 
         return frame, fmt, msg
 
@@ -634,7 +634,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         markers = cv2.watershed(frame, markers)
         fmt = 'BGR'
         uniqueMarkers = np.unique(markers)
-        msg = 'OK (%03d markers)'%len(uniqueMarkers)
+        msg = f"OK ({len(uniqueMarkers):03d} markers)"
 
         # Color image according to different region centered/attributed to each marker.
         if len(self._wsdColors) < len(uniqueMarkers):
@@ -659,7 +659,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         frame = center[label.flatten()]
         frame = frame.reshape(shape)
         fmt = 'BGR'
-        msg = 'OK (K=%02d, attempts=%02d)'%(self._args['K'], self._args['attempts'])
+        msg = f"OK (K={self._args['K']:02d}, attempts={self._args['attempts']:02d})"
 
         return frame, fmt, msg
 
@@ -733,33 +733,33 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Generate message from options.
         msg = ''
         if self._args['DBGrun']:
-            msg += ', detect %s'%self._args['detection']
+            msg += f", detect {self._args['detection']}"
             if self._args['detection']:
-                msg += ', detectMode %s'%self._args['detectMode']
-                msg += ', conf %.3f'%self._args['confidence']
-                msg += ', nms %.3f'%self._args['nms']
-                msg += ', tracking %s'%self._args['tracking']
+                msg += f", detectMode {self._args['detectMode']}"
+                msg += f", conf {self._args['confidence']:.3f}"
+                msg += f", nms {self._args['nms']:.3f}"
+                msg += f", tracking {self._args['tracking']}"
                 if 'detectHits' in self._args:
-                    msg += ', detectHits %d'%self._args['detectHits']
-            msg += ', depth %s'%self._args['depth']
+                    msg += f", detectHits {self._args['detectHits']}"
+            msg += f", depth {self._args['depth']}"
             if self._args['depth']:
-                msg += ', numDisparities %d'%self._args['numDisparities']
-                msg += ', blockSize %d'%self._args['blockSize']
-            msg += ', keypoints %s'%self._args['keypoints']
+                msg += f", numDisparities {self._args['numDisparities']}"
+                msg += f", blockSize {self._args['blockSize']}"
+            msg += f", keypoints {self._args['keypoints']}"
             if self._args['keypoints']:
-                msg += ', kptMode %s'%self._args['kptMode']
-                msg += ', nbFeatures %d'%self._args['nbFeatures']
-            msg += ', stitch %s'%self._args['stitch']
+                msg += f", kptMode {self._args['kptMode']}"
+                msg += f", nbFeatures {self._args['nbFeatures']}"
+            msg += f", stitch {self._args['stitch']}"
             if self._args['stitch']:
-                msg += ', crop %s'%self._args['crop']
-            msg += ', segmentation %s'%self._args['segmentation']
+                msg += f", crop {self._args['crop']}"
+            msg += f", segmentation {self._args['segmentation']}"
             if self._args['segmentation']:
-                msg += ', segMode %s'%self._args['segMode']
-                msg += ', K %s'%self._args['K']
-                msg += ', attempts %s'%self._args['attempts']
+                msg += f", segMode {self._args['segMode']}"
+                msg += f", K {self._args['K']}"
+                msg += f", attempts {self._args['attempts']}"
         if self._args['DBGprof']:
             if self._args['detection']:
-                msg += ', detection %s'%self._args['detection']
+                msg += f", detection {self._args['detection']}"
             if self._args['depth']:
                 msg += ', depth'
             if self._args['keypoints']:
@@ -767,14 +767,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             if self._args['stitch']:
                 msg += ', stitch'
             if 'postTime' in self._args:
-                msg += ', postTime %.3f'%self._args['postTime']
+                msg += f", postTime {self._args['postTime']:.3f}"
             if 'dnnTime' in self._args:
-                msg += ', dnnTime %.3f'%self._args['dnnTime']
+                msg += f", dnnTime {self._args['dnnTime']:.3f}"
         if self._args['DBGcomm']:
             msg += ', comm'
             if 'updatePostFrameTime' in self._args:
-                msg += ', updatePostFrameTime %.3f'%self._args['updatePostFrameTime']
+                msg += f", updatePostFrameTime {self._args['updatePostFrameTime']:.3f}"
             if 'updatePostFrameSize' in self._args:
-                msg += ', updatePostFrameSize %d'%self._args['updatePostFrameSize']
+                msg += f", updatePostFrameSize {self._args['updatePostFrameSize']}"
 
         return msg
