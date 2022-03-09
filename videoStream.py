@@ -6,7 +6,6 @@
 # Imports.
 import time
 import cv2
-import argparse
 
 def cmdLineArgsVideoStream(parser, stereo=True, strLeftReq=True, strRightReq=True):
     """Manage command line arguments related to video stream."""
