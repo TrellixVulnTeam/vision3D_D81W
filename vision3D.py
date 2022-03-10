@@ -537,7 +537,7 @@ class Vision3D(QWidget):
         self._args['stitch'] = False
         stitchChkBox = self._createChkBoxParameters(grpBoxLay, 'stitch', 3, 10)
         self._args['crop'] = False
-        cropChkBox = self._createChkBoxParameters(grpBoxLay, 'crop', 3, 24)
+        self._createChkBoxParameters(grpBoxLay, 'crop', 3, 24)
         self._args['segmentation'] = False
         segChkBox = self._createChkBoxParameters(grpBoxLay, 'segmentation', 4, 10)
         self._createSegmentationPost(grpBoxLay, 4, 22)

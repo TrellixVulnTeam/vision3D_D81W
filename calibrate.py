@@ -175,7 +175,7 @@ def initFrames(args):
     for fname in sorted(glob.glob(fileID + '-*.jpg')):
         print(f"  Loading {fname}...", flush=True)
         frame = cv2.imread(fname)
-        height, width, channel = frame.shape # Numpy shapes are height / width / channel.
+        height, width, _ = frame.shape # Numpy shapes are height / width / channel.
         shape = (width, height) # OpenCV shapes are width / height.
         ret = chessboardCalibration(args, frame, obj, img, delay=1000)
         if ret:
@@ -215,7 +215,7 @@ def initCalibration(args):
         shape = fdh['shape'][...]
         fdh.close()
 
-    newCamMtx, roiCam = modifyCameraIntrinsics(args, mtx, dist, shape)
+    newCamMtx, _ = modifyCameraIntrinsics(args, mtx, dist, shape)
 
     return mtx, dist, newCamMtx
 
@@ -231,7 +231,7 @@ def runCalibration(args):
         mtx, dist = calibrateFisheyeCamera(args, obj, img, shape)
     else:
         mtx, dist = calibrateStandardCamera(args, obj, img, shape)
-    newCamMtx, roiCam = modifyCameraIntrinsics(args, mtx, dist, shape)
+    newCamMtx, _ = modifyCameraIntrinsics(args, mtx, dist, shape)
 
     return mtx, dist, newCamMtx
 

@@ -403,7 +403,6 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Pair detections from left and right.
         for xwyhlcL in detectL:
             boxTopXL, boxWidthL, boxTopYL, boxHeightL, boxLabelL, boxClrL = xwyhlcL
-            boxCenterXL, boxCenterYL = boxTopXL + boxWidthL//2, boxTopYL + boxHeightL//2
 
             # Find best rigth box that match current left box.
             done = False
@@ -414,6 +413,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
                 if boxLabelL == boxLabelR:
                     if boxTopXL <= boxCenterXR <= boxTopXL + boxWidthL:
                         if boxTopYL <= boxCenterYR <= boxTopYL + boxHeightL:
+                            boxCenterXL = boxTopXL + boxWidthL//2
                             disparity = boxCenterXL - boxCenterXR
                             depthL = baselineLeft*focXLeft/disparity
                             textL = f"depth: {depthL:.1f}"
@@ -519,7 +519,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             # Find homography (RANSAC).
             srcPts = np.float32([kptL[match.queryIdx].pt for match in bestMatches]).reshape(-1, 1, 2)
             dstPts = np.float32([kptR[match.trainIdx].pt for match in bestMatches]).reshape(-1, 1, 2)
-            homo, mask = cv2.findHomography(srcPts, dstPts, cv2.RANSAC, 5.0)
+            homo, _ = cv2.findHomography(srcPts, dstPts, cv2.RANSAC, 5.0)
 
             # Warp perspective: change field of view.
             rowsL, colsL = frameL.shape[:2]
@@ -564,9 +564,6 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         net.setInput(blob)
         output = net.forward()
 
-        # Infer number of classes and the spatial dimensions of the mask image from the output array.
-        (numClasses, height, width) = output.shape[1:4]
-
         # Our output class ID map will be num_classes x height x width in size, so we take the argmax to find
         # the class label with the largest probability for each and every (x, y)-coordinate in the image.
         classMap = np.argmax(output[0], axis=0)
@@ -610,7 +607,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         # Convert to gray scale.
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
         # Remove noise.
         kernel = np.ones((3, 3), np.uint8)
@@ -621,14 +618,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         # Finding sure foreground area.
         distTransform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
-        ret, sureFg = cv2.threshold(distTransform, 0.7*distTransform.max(), 255, 0)
+        _, sureFg = cv2.threshold(distTransform, 0.7*distTransform.max(), 255, 0)
 
         # Finding unknown region.
         sureFg = np.uint8(sureFg)
         unknown = cv2.subtract(sureBg, sureFg)
 
         # Marker labelling.
-        ret, markers = cv2.connectedComponents(sureFg)
+        _, markers = cv2.connectedComponents(sureFg)
 
         # Add one to all labels to make sure background is not 0, but 1.
         markers = markers+1
@@ -657,7 +654,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         frame = np.float32(frame)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
         prmK, attempts = self._args['K'], self._args['attempts']
-        ret, label, center = cv2.kmeans(frame, prmK, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
+        _, label, center = cv2.kmeans(frame, prmK, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         # Convert back to image.
         shape = frame.shape

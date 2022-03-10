@@ -57,7 +57,7 @@ class CaptureThread(threading.Thread):
         global QUIT_EVENT, SAVE_EVENT
         while vid.isOpened():
             # Get video frame.
-            frameOK, frame, fps = vid.read()
+            frameOK, frame, _ = vid.read()
             if not frameOK:
                 continue
 

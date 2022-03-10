@@ -174,11 +174,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
 
         # Calibrate stereo (sister) camera individually based on free scaling parameter.
         mtxStr, distStr = self._stereo['mtx'], self._stereo['dist']
-        newCamMtxStr, roiCamStr = mtxStr, False
+        newCamMtxStr = mtxStr
         alpha = self._args['alpha']
         if alpha >= 0.:
             shapeStr = self._stereo['shape']
-            newCamMtxStr, roiCamStr = modifyCameraIntrinsics(self._args, mtxStr, distStr, shapeStr)
+            newCamMtxStr, _ = modifyCameraIntrinsics(self._args, mtxStr, distStr, shapeStr)
 
         # Get left/right sides.
         imgL, imgR = None, None
@@ -247,23 +247,23 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         imgPtsR = np.zeros((nbImg, 1, cbSize, 2), imgR.dtype) # Resize image points.
         for idx, img in enumerate(imgR):
             imgPtsR[idx, 0, :, :] = img[:, 0, :]
-        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(obj, imgPtsL, imgPtsR,
-                                                                                            newCamMtxL, distL,
-                                                                                            newCamMtxR, distR,
-                                                                                            shape,
-                                                                                            criteria=criteria,
-                                                                                            flags=flags)
+        _, newCamMtxL, distL, newCamMtxR, distR, rot, trans = cv2.fisheye.stereoCalibrate(obj, imgPtsL, imgPtsR,
+                                                                                          newCamMtxL, distL,
+                                                                                          newCamMtxR, distR,
+                                                                                          shape,
+                                                                                          criteria=criteria,
+                                                                                          flags=flags)
         self._args['trans'] = trans
 
         # Stereo rectification based on calibration.
         flags = 0
-        rectL, rectR, prjCamMtxL, prjCamMtxR, matQ = cv2.fisheye.stereoRectify(newCamMtxL, distL,
-                                                                               newCamMtxR, distR,
-                                                                               shape, rot, trans,
-                                                                               flags,
-                                                                               fov_scale=self._args['fovScale'],
-                                                                               balance=self._args['balance'],
-                                                                               newImageSize=shape)
+        rectL, rectR, prjCamMtxL, prjCamMtxR, _ = cv2.fisheye.stereoRectify(newCamMtxL, distL,
+                                                                            newCamMtxR, distR,
+                                                                            shape, rot, trans,
+                                                                            flags,
+                                                                            fov_scale=self._args['fovScale'],
+                                                                            balance=self._args['balance'],
+                                                                            newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
             stereoMap = cv2.fisheye.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjCamMtxL, shapeL, cv2.CV_16SC2)
@@ -282,23 +282,23 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         flags = cv2.CALIB_FIX_INTRINSIC
         criteria= (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         shape = self._cal['shape']
-        ret, newCamMtxL, distL, newCamMtxR, distR, rot, trans, eMtx, fMtx = cv2.stereoCalibrate(obj, imgL, imgR,
-                                                                                                newCamMtxL, distL,
-                                                                                                newCamMtxR, distR,
-                                                                                                shape,
-                                                                                                criteria=criteria,
-                                                                                                flags=flags)
+        _, newCamMtxL, distL, newCamMtxR, distR, rot, trans, _, _ = cv2.stereoCalibrate(obj, imgL, imgR,
+                                                                                        newCamMtxL, distL,
+                                                                                        newCamMtxR, distR,
+                                                                                        shape,
+                                                                                        criteria=criteria,
+                                                                                        flags=flags)
         self._args['trans'] = trans
 
         # Stereo rectification based on calibration.
         alpha = -1 # Default scaling.
         if self._args['alpha'] >= 0.:
             alpha = self._args['alpha']
-        rectL, rectR, prjCamMtxL, prjCamMtxR, matQ, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
-                                                                                         newCamMtxR, distR,
-                                                                                         shape, rot, trans,
-                                                                                         alpha=alpha,
-                                                                                         newImageSize=shape)
+        rectL, rectR, prjCamMtxL, prjCamMtxR, _, roiCamL, roiCamR = cv2.stereoRectify(newCamMtxL, distL,
+                                                                                      newCamMtxR, distR,
+                                                                                      shape, rot, trans,
+                                                                                      alpha=alpha,
+                                                                                      newImageSize=shape)
         stereoMap = None
         if self._cal['side'] == 'left':
             stereoMap = cv2.initUndistortRectifyMap(newCamMtxL, distL, rectL, prjCamMtxL, shapeL, cv2.CV_16SC2)
@@ -324,11 +324,11 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             for corner in img:
                 imgPtsR.append(np.array(corner[0]))
         imgPtsR = np.array(imgPtsR)
-        fMtx, mask = cv2.findFundamentalMat(imgPtsL, imgPtsR, cv2.FM_RANSAC)
+        fMtx, _ = cv2.findFundamentalMat(imgPtsL, imgPtsR, cv2.FM_RANSAC)
 
         # Stereo rectification without knowing calibration.
         shape = self._cal['shape']
-        ret, matHL, matHR = cv2.stereoRectifyUncalibrated(imgPtsL, imgPtsR, fMtx, shape)
+        _, matHL, matHR = cv2.stereoRectifyUncalibrated(imgPtsL, imgPtsR, fMtx, shape)
         rectL = np.dot(np.dot(np.linalg.inv(mtxL), matHL), mtxL)
         rectR = np.dot(np.dot(np.linalg.inv(mtxR), matHR), mtxR)
         stereoMap = None
