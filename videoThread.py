@@ -366,9 +366,9 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
 
             # Show only ROI on demand.
             if self._args['ROI'] and self._args['roiCam']:
-                x, y, width, height = self._args['roiCam']
+                xTop, yTop, width, height = self._args['roiCam']
                 roiFrame = np.ones(frame.shape, np.uint8) # Black image.
-                roiFrame[y:y+height, x:x+width] = frame[y:y+height, x:x+width] # Add ROI.
+                roiFrame[yTop:yTop+height, xTop:xTop+width] = frame[yTop:yTop+height, xTop:xTop+width] # Add ROI.
                 frame = roiFrame # Replace frame with ROI of undistorted frame.
 
             # Get image back to application.

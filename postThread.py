@@ -194,14 +194,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         net = cv2.dnn.readNetFromDarknet('yolov3-tiny.cfg', 'yolov3-tiny.weights')
 
         # Determine only the *output* layer names that we need.
-        ln = net.getLayerNames()
-        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
+        lyr = net.getLayerNames()
+        lyr = [lyr[idx - 1] for idx in net.getUnconnectedOutLayers()]
 
         # Remind YOLO setup.
         self._detect['YOLO']['labels'] = labels
         self._detect['YOLO']['colors'] = colors
         self._detect['YOLO']['net'] = net
-        self._detect['YOLO']['ln'] = ln
+        self._detect['YOLO']['lyr'] = lyr
 
     def _setupSSD(self, labels, colors):
         """Setup SSD inputs."""
@@ -214,14 +214,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         net = cv2.dnn.readNetFromCaffe(protoTxt, caffemodel)
 
         # Determine only the *output* layer names that we need.
-        ln = net.getLayerNames()
-        ln = [ln[idx - 1] for idx in net.getUnconnectedOutLayers()]
+        lyr = net.getLayerNames()
+        lyr = [lyr[idx - 1] for idx in net.getUnconnectedOutLayers()]
 
         # Remind SSD setup.
         self._detect['SSD']['labels'] = labels
         self._detect['SSD']['colors'] = colors
         self._detect['SSD']['net'] = net
-        self._detect['SSD']['ln'] = ln
+        self._detect['SSD']['lyr'] = lyr
 
     def _setupENet(self):
         """Setup ENet inputs."""
@@ -296,10 +296,10 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Perform a forward pass of the YOLO object detector.
         detectMode = self._args['detectMode']
         detect = self._detect[detectMode]
-        net, ln = detect['net'], detect['ln']
+        net, lyr = detect['net'], detect['lyr']
         net.setInput(blob)
         start = time.time()
-        layerOutputs = net.forward(ln)
+        layerOutputs = net.forward(lyr)
         stop = time.time()
         self._args['dnnTime'] = stop - start
 
@@ -467,17 +467,17 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
             norm = cv2.NORM_HAMMING # Better for ORB.
         elif self._args['kptMode'] == 'SIFT':
             norm = cv2.NORM_L2 # Better for SIFT.
-        bf = cv2.BFMatcher(norm, crossCheck=False) # Need crossCheck=False for knnMatch.
-        matches = bf.knnMatch(dscL, dscR, k=2) # knnMatch crucial to get 2 matches m1 and m2.
+        bfm = cv2.BFMatcher(norm, crossCheck=False) # Need crossCheck=False for knnMatch.
+        matches = bfm.knnMatch(dscL, dscR, k=2) # knnMatch crucial to get 2 matches match1 and match2.
         if len(matches) == 0:
             msg = 'KO no match'
             return kptL, kptR, matches, msg
 
         # To keep only strong matches.
         bestMatches = []
-        for m1, m2 in matches: # For every descriptor, take closest two matches.
-            if m1.distance < 0.6 * m2.distance: # Best match has to be closer than second best.
-                bestMatches.append(m1) # Lowe’s ratio test.
+        for match1, match2 in matches: # For every descriptor, take closest two matches.
+            if match1.distance < 0.6 * match2.distance: # Best match has to be closer than second best.
+                bestMatches.append(match1) # Lowe’s ratio test.
         if len(bestMatches) == 0:
             msg = 'KO no best match'
             return kptL, kptR, bestMatches, msg
@@ -650,8 +650,8 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         # Run KMeans segmentation.
         frame = np.float32(frame)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-        K, attempts = self._args['K'], self._args['attempts']
-        ret, label, center = cv2.kmeans(frame, K, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
+        prmK, attempts = self._args['K'], self._args['attempts']
+        ret, label, center = cv2.kmeans(frame, prmK, None, criteria, attempts, cv2.KMEANS_RANDOM_CENTERS)
 
         # Convert back to image.
         shape = frame.shape
