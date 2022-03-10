@@ -223,6 +223,7 @@ class Vision3D(QWidget):
         logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
         # Create widgets.
+        self.v3DRdoBtnMode, self.v3DRdoBtnDetect, self.v3DRdoBtnKpt, self.v3DRdoBtnSeg = None, None, None, None
         grpBox = self._createParameters()
         self._imgLblLeft = QLabel()
         self._txtLblLeft = QLabel('Left')
