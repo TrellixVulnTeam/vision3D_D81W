@@ -601,12 +601,12 @@ class Vision3D(QWidget):
         self.signals = Vision3DSignals()
         self._threadPool = QThreadPool() # QThreadPool must be used with QRunnable (NOT QThread).
         self._threadPool.setMaxThreadCount(3)
-        videoIDLeft = args['videoIDLeft']
+        videoIDLeft = self._args['videoIDLeft']
         self._threadLeft = VideoThread(videoIDLeft, self._args, self)
         self._threadLeft.signals.updatePrepFrame.connect(self.updatePrepFrame)
         self._threadLeft.signals.calibrationDone.connect(self.calibrationDone)
         self._threadPool.start(self._threadLeft)
-        videoIDRight = args['videoIDRight']
+        videoIDRight = self._args['videoIDRight']
         self._threadRight = VideoThread(videoIDRight, self._args, self)
         self._threadRight.signals.updatePrepFrame.connect(self.updatePrepFrame)
         self._threadRight.signals.calibrationDone.connect(self.calibrationDone)
