@@ -2,6 +2,7 @@
 
 pylint --module-naming-style=camelCase          \
        --const-naming-style=UPPER_CASE          \
+       --class-const-naming-style=UPPER_CASE    \
        --class-naming-style=PascalCase          \
        --function-naming-style=camelCase        \
        --method-naming-style=camelCase          \
