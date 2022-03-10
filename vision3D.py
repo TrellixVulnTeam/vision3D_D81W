@@ -574,9 +574,8 @@ class Vision3D(QWidget):
             gdd.download_file_from_google_drive(file_id='0BzKzrI_SkD1_dlJpZHJzOXd3MTg',
                                                 dest_path='./models_VGGNet_coco_SSD_512x512.tar.gz',
                                                 showsize=True, unzip=False)
-            tgz = tarfile.open('models_VGGNet_coco_SSD_512x512.tar.gz')
-            tgz.extractall('./models_VGGNet_coco_SSD_512x512')
-            tgz.close()
+            with tarfile.open('models_VGGNet_coco_SSD_512x512.tar.gz') as tgz:
+                tgz.extractall('./models_VGGNet_coco_SSD_512x512')
         else:
             logger.info('[vision3D] models_VGGNet_coco_SSD_512x512.tar.gz has already been downloaded.')
 

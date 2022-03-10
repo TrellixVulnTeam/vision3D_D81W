@@ -48,7 +48,9 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S', level=logging.INFO)
 
         # Set up detection.
-        labels = open('coco.names').read().strip().split("\n") # Load the COCO class labels.
+        labels = []
+        with open('coco.names') as fdsc:
+            labels = fdsc.read().strip().split("\n") # Load the COCO class labels.
         np.random.seed(42) # Initialize colors to represent each possible class label.
         colors = np.random.randint(0, 255, size=(len(labels), 3), dtype="uint8")
         self._knownKfr = {'left': [], 'right': []} # Remind known tracked detections on both sides.
@@ -227,10 +229,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         """Setup ENet inputs."""
 
         # Load the cityscapes classes our ENet model was trained on.
-        classes = open('enet-classes.txt').read().strip().split("\n")
+        classes = []
+        with open('enet-classes.txt') as fdsc:
+            classes = fdsc.read().strip().split("\n")
 
         # Initialize a list of colors to represent each possible class label.
-        colors = open('enet-colors.txt').read().strip().split("\n")
+        colors = []
+        with open('enet-colors.txt') as fdsc:
+            colors = fdsc.read().strip().split("\n")
         colors = [np.array(c.split(",")).astype("int") for c in colors]
         colors = np.array(colors, dtype="uint8")
 
