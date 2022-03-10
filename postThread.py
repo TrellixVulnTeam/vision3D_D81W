@@ -74,14 +74,14 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
 
         # Lots of events may be spawned: check impact is needed.
         newValue = None
-        if objType == 'int':
-            newValue = int(value)
-        elif objType == 'double':
-            newValue = float(value)
-        elif objType == 'bool':
+        if objType == 'bool':
             newValue = bool(value)
         elif objType == 'str':
             newValue = str(value)
+        elif objType == 'int':
+            newValue = int(value)
+        elif objType == 'double':
+            newValue = float(value)
         else:
             assert True, 'unknown type.'
         if self._args[param] == newValue:

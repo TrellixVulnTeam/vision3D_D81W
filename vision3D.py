@@ -69,7 +69,7 @@ class Vision3DCheckBox(QWidget):
         if self._triggerDisable:
             self._vision3D.disableCalibration()
         value = self.gui.isChecked() # State which has been modified.
-        self._vision3D.signals.changeParam.emit(self._param, 'bool', value) # Emit value and associated parameter / type.
+        self._vision3D.signals.changeParam.emit(self._param, 'bool', value) # Emit parameter value and type.
 
 class Vision3DRadioButtonMode(QWidget):
     """Vision mode radiobuttons."""
@@ -102,7 +102,7 @@ class Vision3DRadioButtonMode(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit parameter value and type.
 
 class Vision3DRadioButtonDetection(QWidget):
     """Vision detection radiobuttons."""
@@ -132,7 +132,7 @@ class Vision3DRadioButtonDetection(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit parameter value and type.
 
 class Vision3DRadioButtonKeyPoints(QWidget):
     """Vision keypoint radiobuttons."""
@@ -162,7 +162,7 @@ class Vision3DRadioButtonKeyPoints(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit parameter value and type.
 
 class Vision3DRadioButtonSegmentation(QWidget):
     """Vision segmentation radiobuttons."""
@@ -195,7 +195,7 @@ class Vision3DRadioButtonSegmentation(QWidget):
             # Send signal to threads.
             self._vision3D.disableCalibration()
             value = rdoBtn.mode # Mode which has been modified.
-            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit value and associated parameter / type.
+            self._vision3D.signals.changeParam.emit(self._param, 'str', value) # Emit parameter value and type.
 
 class Vision3DSignals(QObject):
     """Vision signals."""
