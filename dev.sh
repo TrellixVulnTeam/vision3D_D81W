@@ -16,4 +16,4 @@ pylint --module-naming-style=camelCase          \
        |                                        \
        awk 'BEGIN{rate = 0;}
             {print $0; if ($2 == "code" && $5 == "rated") {split($7, tokens, "/"); rate=tokens[1];}}
-            END{print "rate = " rate; if (strtonum(rate) < 8.45) {print "KO - rate regression"; exit(1);};}'
+            END{print "rate = " rate; if (strtonum(rate) < 8.60) {print "KO - rate regression"; exit(1);};}'

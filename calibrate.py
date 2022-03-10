@@ -7,11 +7,13 @@
 import sys
 import os
 import argparse
-from videoStream import VideoStream, cmdLineArgsVideoStream
+import glob
+
 import cv2
 import numpy as np
 import h5py
-import glob
+
+from videoStream import VideoStream, cmdLineArgsVideoStream
 
 def cmdLineArgsCalibrate(parser, addChessboard=True):
     """Manage command line arguments related to calibration."""

@@ -4,15 +4,17 @@
 """Handling video."""
 
 # Imports.
-from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
-from videoStream import VideoStream
-from calibrate import modifyCameraIntrinsics
 import os
+import time
+import logging
+
+from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
 import h5py
 import cv2
 import numpy as np
-import time
-import logging
+
+from videoStream import VideoStream
+from calibrate import modifyCameraIntrinsics
 
 logger = logging.getLogger('capt')
 

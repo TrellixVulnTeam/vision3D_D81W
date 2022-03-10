@@ -5,11 +5,13 @@
 
 # Imports.
 import sys
+
 import argparse
 import threading
+import cv2
+
 from videoStream import VideoStream, cmdLineArgsVideoStream
 from calibrate import cmdLineArgsCalibrate, chessboardCalibration
-import cv2
 
 # Synchronisation barrier.
 SYNC = None

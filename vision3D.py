@@ -6,22 +6,24 @@
 # Imports.
 import sys
 import os
+import tarfile
+import threading
+import argparse
+import logging
+
 import wget
 from google_drive_downloader import GoogleDriveDownloader as gdd
-import tarfile
-import argparse
 from PyQt5.QtWidgets import QWidget, QApplication, QLabel, QGridLayout
 from PyQt5.QtWidgets import QGroupBox, QLineEdit, QCheckBox, QRadioButton, QButtonGroup
 from PyQt5.QtGui import QImage, QPixmap, QIntValidator, QDoubleValidator
 from PyQt5.QtCore import Qt, pyqtSignal, QThreadPool, QObject
-from videoThread import VideoThread
-from postThread import PostThread
 import cv2
 import numpy as np
-import threading
+
+from videoThread import VideoThread
+from postThread import PostThread
 from videoStream import cmdLineArgsVideoStream
 from calibrate import cmdLineArgsCalibrate
-import logging
 
 # Logger.
 logger = logging.getLogger()

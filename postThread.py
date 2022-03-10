@@ -5,12 +5,14 @@
 
 # Imports.
 import os
+import time
+import threading
+import logging
+
 import numpy as np
 from PyQt5.QtCore import QRunnable, pyqtSignal, QObject
-import threading
 import cv2
-import logging
-import time
+
 import kalman
 
 logger = logging.getLogger('post')
