@@ -218,20 +218,20 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         assert self._args['mode'] == 'str', f"unknown mode {self._args['mode']}."
         if self._args['fisheye']:
             self._calibrateWithFisheyeCalibration(obj,
-                                                  imgL, mtxL, newCamMtxL, distL, shapeL,
-                                                  imgR, mtxR, newCamMtxR, distR, shapeR)
+                                                  imgL, newCamMtxL, distL, shapeL,
+                                                  imgR, newCamMtxR, distR, shapeR)
         else:
             if self._args['CAL']:
                 self._calibrateWithCalibration(obj,
-                                               imgL, mtxL, newCamMtxL, distL, shapeL,
-                                               imgR, mtxR, newCamMtxR, distR, shapeR)
+                                               imgL, newCamMtxL, distL, shapeL,
+                                               imgR, newCamMtxR, distR, shapeR)
             else:
                 self._calibrateWithoutCalibration(imgL, mtxL, newCamMtxL, distL, shapeL,
                                                   imgR, mtxR, newCamMtxR, distR, shapeR)
 
     def _calibrateWithFisheyeCalibration(self, obj,
-                                         imgL, mtxL, newCamMtxL, distL, shapeL,
-                                         imgR, mtxR, newCamMtxR, distR, shapeR):
+                                         imgL, newCamMtxL, distL, shapeL,
+                                         imgR, newCamMtxR, distR, shapeR):
         """Fisheye calibration using calibration parameters."""
 
         # Stereo calibration of both cameras.
@@ -273,8 +273,8 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
         self._args['stereoMap'] = stereoMap
 
     def _calibrateWithCalibration(self, obj,
-                                  imgL, mtxL, newCamMtxL, distL, shapeL,
-                                  imgR, mtxR, newCamMtxR, distR, shapeR):
+                                  imgL, newCamMtxL, distL, shapeL,
+                                  imgR, newCamMtxR, distR, shapeR):
         """Standard calibration using calibration parameters."""
 
         # Stereo calibration of both cameras.
