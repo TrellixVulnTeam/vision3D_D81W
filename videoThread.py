@@ -419,7 +419,7 @@ class VideoThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QTh
             focX = np.abs(focX)
         baseline = -1.
         if self._args['mode'] == 'str' and 'trans' in self._args:
-            baseline = self._args['trans'][0] # Distance between cameras.
+            baseline = self._args['trans'][0][0] # Distance between cameras.
             baseline = np.abs(baseline)
         params = {}
         if self._cal['side'] == 'left':
