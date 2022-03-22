@@ -446,7 +446,7 @@ class PostThread(QRunnable): # QThreadPool must be used with QRunnable (NOT QThr
         if np.max(scaledDisparity) > 0:
             scaledDisparity = scaledDisparity * (255/np.max(scaledDisparity))
         frame = scaledDisparity.astype(np.uint8)
-        msg = f"range 0-255, mean {np.mean(scaledDisparity):03d}, std {np.std(scaledDisparity):03d}"
+        msg = f"range 0-255, mean {np.mean(scaledDisparity):.3f}, std {np.std(scaledDisparity):.3f}"
 
         return frame, 'GRAY', msg
 
